@@ -1,70 +1,70 @@
-# Getting Started with Create React App
+# Onde Estão Heric? - Viewer
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## Descrição
 
-## Available Scripts
+Este repositório contém a aplicação **Viewer** do projeto "Onde Estão Heric?". Desenvolvido em React.js, o Viewer é responsável pela visualização e monitoramento dos feeds de câmeras. Ele oferece uma interface intuitiva para exibir câmeras em grade, visualização em tela cheia e integração com o Supabase para recuperação de dados.
 
-In the project directory, you can run:
+## Funcionalidades
 
-### `npm start`
+*   Exibição de feeds de câmeras em formato de grade ou lista.
+*   Visualização em tela cheia para imagens de câmeras individuais.
+*   Integração com Supabase para persistência e recuperação de dados.
+*   Cálculo de distância (baseado em `src/utils/calculateDistance.js`).
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Tecnologias Utilizadas
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+*   **Frontend:** React.js
+*   **Backend/Banco de Dados:** Supabase
+*   **Linguagens:** JavaScript, HTML, CSS
 
-### `npm test`
+## Instalação
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+Para configurar e executar o projeto localmente, siga os passos abaixo:
 
-### `npm run build`
+1.  **Clone o repositório:**
+    ```bash
+    git clone <URL_DO_SEU_REPOSITORIO>
+    cd ondeestaoheric
+    ```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+2.  **Instale as dependências:**
+    ```bash
+    npm install
+    ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+3.  **Configuração do Supabase:**
+    Crie um arquivo `.env` na raiz do projeto e adicione suas credenciais do Supabase:
+    ```
+    REACT_APP_SUPABASE_URL=sua_url_supabase
+    REACT_APP_SUPABASE_ANON_KEY=sua_chave_anonima_supabase
+    ```
+    Substitua `sua_url_supabase` e `sua_chave_anonima_supabase` pelas suas credenciais reais do projeto Supabase.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+4.  **Execute o aplicativo:**
+    ```bash
+    npm start
+    ```
 
-### `npm run eject`
+    O aplicativo será iniciado em `http://localhost:3000` (ou outra porta disponível).
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Uso
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+Após iniciar o aplicativo:
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+*   Acesse `http://localhost:3000` no seu navegador.
+*   Navegue pelos feeds das câmeras exibidas.
+*   Clique em uma imagem de câmera para visualizá-la em tela cheia.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Contribuição
 
-## Learn More
+Contribuições são bem-vindas! Para contribuir, por favor, siga os seguintes passos:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1.  Faça um fork do repositório.
+2.  Crie uma nova branch (`git checkout -b feature/sua-feature`).
+3.  Faça suas alterações e commit-as (`git commit -m 'feat: Adiciona nova funcionalidade'`).
+4.  Envie para a branch (`git push origin feature/sua-feature`).
+5.  Abra um Pull Request.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Licença
 
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Este projeto está licenciado sob a Licença MIT. Veja o arquivo `LICENSE` para mais detalhes. (Se você não tiver um arquivo LICENSE, considere criá-lo.)
