@@ -63,10 +63,77 @@ O componente `Viewer` será modificado para buscar os dados das câmeras da nova
 
 ## 6. Próximos Passos (Ordem de Implementação)
 
-1.  **Criação da Tabela `cameras` no Supabase:** Definir o esquema e criar a tabela.
-2.  **Desenvolvimento do `CameraEditor` (Parte 1 - Formulário e Mapa Básico):** Criar o componente com o formulário e um mapa OpenLayers funcional.
-3.  **Implementação da Interação de Desenho no `CameraEditor`:** Adicionar a funcionalidade de desenhar polígonos no mapa.
-4.  **Integração do `CameraEditor` com Supabase (INSERT/UPDATE):** Conectar o formulário e o desenho do mapa com as operações de salvar no Supabase.
-5.  **Atualização do Roteamento:** Adicionar a rota para o `CameraEditor` em `src/App.js`.
-6.  **Atualização do `Viewer`:** Modificar o `Viewer` para carregar câmeras do Supabase e exibir as áreas de cobertura.
-7.  **Testes e Refinamentos:** Testar a funcionalidade completa e fazer ajustes necessários.
+Esta seção detalha os passos a serem seguidos para a implementação da funcionalidade de edição de câmeras, com um checklist para acompanhamento.
+
+### Checklist de Implementação:
+
+#### Fase 1: Configuração do Banco de Dados
+- [ ] **Criar a tabela `cameras` no Supabase:**
+  - [ ] Definir o esquema da tabela conforme a seção 2.
+  - [ ] Configurar as políticas de RLS (Row Level Security) para permitir `INSERT`, `SELECT`, `UPDATE` e `DELETE` conforme necessário (inicialmente, pode ser mais permissivo para desenvolvimento).
+
+#### Fase 2: Desenvolvimento do Componente `CameraEditor`
+- [ ] **Criar o diretório `src/components/CameraEditor`**.
+- [ ] **Criar `src/components/CameraEditor/index.js`:**
+  - [ ] Estrutura básica do componente React.
+  - [ ] Importar `React`, `useState`, `useEffect`, `useRef`.
+  - [ ] Importar componentes de UI (e.g., `Form`, `Button`, `Container`, `Row`, `Col`, `Card` do `react-bootstrap`).
+  - [ ] Importar `supabase` do `../../supabaseClient`.
+  - [ ] Inicializar o estado para os campos do formulário da câmera (name, lat, lng, link, info, icon).
+  - [ ] Inicializar o estado para o mapa e as interações de desenho/modificação.
+- [ ] **Criar `src/components/CameraEditor/styles.css`:**
+  - [ ] Estilos básicos para o componente e o mapa.
+- [ ] **Implementar o Mapa OpenLayers no `CameraEditor`:**
+  - [ ] Inicializar o mapa (`ol/Map`, `ol/View`, `ol/layer/Tile`, `ol/source/OSM`).
+  - [ ] Adicionar uma camada de vetor para desenhar e exibir polígonos (`ol/layer/Vector`, `ol/source/Vector`).
+  - [ ] Adicionar um marcador para a localização da câmera (`ol/Feature`, `ol/geom/Point`, `ol/style/Style`, `ol/style/Icon`).
+- [ ] **Implementar Interações de Desenho e Modificação:**
+  - [ ] Importar `ol/interaction/Draw` e `ol/interaction/Modify`.
+  - [ ] Adicionar a interação de desenho para retângulos (tipo `Polygon` com `geometryFunction` ou `Circle` e conversão).
+  - [ ] Adicionar a interação de modificação para ajustar o polígono.
+  - [ ] Lógica para obter a geometria desenhada e convertê-la para GeoJSON.
+- [ ] **Desenvolver o Formulário de Detalhes da Câmera:**
+  - [ ] Campos de input controlados para `name`, `lat`, `lng`, `link`, `info`, `icon`.
+  - [ ] Botões para "Salvar", "Limpar Desenho", "Carregar Câmera para Edição".
+- [ ] **Integrar `CameraEditor` com Supabase (CRUD):**
+  - [ ] Função `saveCamera` para `INSERT` ou `UPDATE` na tabela `cameras`.
+  - [ ] Função `loadCameras` para `SELECT` todas as câmeras e popular uma lista para edição.
+  - [ ] Função `deleteCamera` para remover uma câmera.
+  - [ ] Lógica para converter GeoJSON para geometria OpenLayers ao carregar para edição.
+
+#### Fase 3: Atualização do Roteamento
+- [ ] **Adicionar rota `/edit-cameras` em `src/App.js`:**
+  - [ ] Importar `CameraEditor`.
+  - [ ] Adicionar `<Route path="/edit-cameras" element={<CameraEditor />} />`.
+
+#### Fase 4: Atualização do Componente `Viewer`
+- [ ] **Modificar `Viewer` para buscar câmeras do Supabase:**
+  - [ ] Remover importação de `cityCameras.js`.
+  - [ ] Atualizar o `useEffect` que carrega as câmeras para consultar a tabela `cameras` do Supabase.
+- [ ] **Exibir Áreas de Cobertura no `Viewer`:**
+  - [ ] Adicionar uma nova camada de vetor no mapa do `Viewer` para exibir os polígonos de `coverage_area`.
+  - [ ] Lógica para converter GeoJSON de `coverage_area` para geometria OpenLayers e estilizar.
+
+#### Fase 5: Testes e Refinamentos
+- [ ] **Testar Adição de Câmera:**
+  - [ ] Adicionar uma nova câmera com detalhes e desenhar uma área de cobertura.
+  - [ ] Verificar se os dados são salvos corretamente no Supabase.
+- [ ] **Testar Edição de Câmera:**
+  - [ ] Carregar uma câmera existente, modificar detalhes e/ou área de cobertura.
+  - [ ] Verificar se as alterações são salvas corretamente.
+- [ ] **Testar Exibição no `Viewer`:**
+  - [ ] Verificar se todas as câmeras e suas áreas de cobertura são exibidas corretamente no mapa principal.
+- [ ] **Testar Responsividade:**
+  - [ ] Verificar o layout e a funcionalidade em diferentes tamanhos de tela (desktop, mobile).
+- [ ] **Tratamento de Erros:**
+  - [ ] Implementar feedback visual para operações de Supabase (sucesso/erro).
+  - [ ] Lidar com casos de erro na geolocalização ou na API.
+- [ ] **Refinamento de UI/UX:**
+  - [ ] Melhorar a usabilidade do formulário e das interações do mapa.
+  - [ ] Adicionar validações de input.
+
+## 7. Considerações Adicionais
+
+*   **Autenticação:** Para um ambiente de produção, a página de edição deve ser protegida por autenticação.
+*   **Otimização de Mapa:** Para um grande número de câmeras/polígonos, considerar otimizações de renderização do OpenLayers.
+*   **Testes Automatizados:** Adicionar testes unitários e de integração para os novos componentes e lógicas.
