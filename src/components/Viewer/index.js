@@ -208,7 +208,7 @@ const Viewer = () => {
             {mapObject.current && <CameraLayer map={mapObject.current} cameras={cityCameras} onCameraClick={handleOpenFullScreenImage} />}
           </Col>
           {panelOpen && (
-            <Col xs={12} md={3} className="info-col order-1 order-md-2">
+            <Col xs={12} md={3} className="info-col order-1 order-md-2 d-none d-md-block">
               <Button
                 variant="outline-secondary"
                 className="toggle-panel-btn d-none d-md-block mb-2"
