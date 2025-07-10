@@ -7,16 +7,73 @@ import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
 import { Fill, Stroke, Circle as CircleStyle } from 'ol/style';
+import GeoJSON from 'ol/format/GeoJSON';
 
 const CameraLayer = ({ map, cameras, onCameraClick }) => {
-  const vectorSourceRef = useRef(new VectorSource());
+  const cameraSourceRef = useRef(new VectorSource());
+  const coverageSourceRef = useRef(new VectorSource());
   const vectorLayerRef = useRef(null);
+  const coverageLayerRef = useRef(null);
+
+  // Style for coverage areas
+  const coverageStyle = new Style({
+    stroke: new Stroke({
+      color: 'rgba(255, 0, 0, 0.8)',
+      width: 3,
+    }),
+    fill: new Fill({
+      color: 'rgba(255, 0, 0, 0.2)',
+    }),
+  });
+
+  // Renderizar polígonos de cobertura conforme Fase 3.1
+  useEffect(() => {
+    if (!map) return;
+
+    // Criar camada de cobertura
+    coverageLayerRef.current = new VectorLayer({
+      source: coverageSourceRef.current,
+      style: coverageStyle,
+      zIndex: 1,
+    });
+
+    map.addLayer(coverageLayerRef.current);
+
+    return () => {
+      if (coverageLayerRef.current) {
+        map.removeLayer(coverageLayerRef.current);
+      }
+    };
+  }, [map]);
+
+  // Carregar polígonos das câmeras conforme Fase 3.1
+  useEffect(() => {
+    if (!coverageSourceRef.current) return;
+
+    coverageSourceRef.current.clear();
+    const geoJsonFormat = new GeoJSON();
+    
+    cameras.forEach(camera => {
+      if (camera.coverage_area) {
+        try {
+          const feature = geoJsonFormat.readFeature(camera.coverage_area, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857',
+          });
+          coverageSourceRef.current.addFeature(feature);
+          console.log('CameraLayer: Added coverage area for camera:', camera.name);
+        } catch (error) {
+          console.error('CameraLayer: Error processing coverage area for camera:', camera.name, error);
+        }
+      }
+    });
+  }, [cameras]);
 
   useEffect(() => {
     if (!map) return;
 
     vectorLayerRef.current = new VectorLayer({
-      source: vectorSourceRef.current,
+      source: cameraSourceRef.current,
       style: function (feature) {
         const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-video"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`;
         const encodedSvg = encodeURIComponent(svgString);
@@ -54,7 +111,8 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
       if (feature && feature.get('name') && onCameraClick) {
         const camera = cameras.find(cam => cam.name === feature.get('name'));
         if (camera) {
-          onCameraClick(camera.link, camera.name);
+          // Passar apenas a câmera clicada
+          onCameraClick([camera]);
         }
       }
     };
@@ -62,15 +120,17 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
     map.on('click', handleClick);
 
     return () => {
-      map.removeLayer(vectorLayerRef.current);
+      if (vectorLayerRef.current) {
+        map.removeLayer(vectorLayerRef.current);
+      }
       map.un('click', handleClick);
     };
   }, [map, cameras, onCameraClick]);
 
   useEffect(() => {
-    if (!vectorSourceRef.current) return;
+    if (!cameraSourceRef.current) return;
 
-    vectorSourceRef.current.clear();
+    cameraSourceRef.current.clear();
     cameras.forEach(camera => {
       const feature = new Feature({
         geometry: new Point(fromLonLat([camera.lng, camera.lat])),
@@ -78,7 +138,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
         icon: camera.icon,
         info: camera.info,
       });
-      vectorSourceRef.current.addFeature(feature);
+      cameraSourceRef.current.addFeature(feature);
     });
   }, [cameras]);
 

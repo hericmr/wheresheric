@@ -1,0 +1,323 @@
+/* Card principal */
+.camera-card {
+  background: rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+}
+
+.camera-card:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.camera-card.expanded {
+  min-height: 400px;
+}
+
+/* Header do card */
+.camera-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.camera-card-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.camera-card-title h4 {
+  color: white;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.camera-card-status {
+  font-size: 0.75rem;
+  color: #10b981;
+  font-weight: 500;
+}
+
+.camera-card-status:contains('Erro') {
+  color: #ef4444;
+}
+
+.camera-card-status:contains('Carregando') {
+  color: #f59e0b;
+}
+
+.camera-card-controls {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.control-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.4rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+}
+
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-btn.active {
+  background: rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.control-btn.close-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.control-btn.close-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.icon {
+  font-size: 0.875rem;
+}
+
+.icon.spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Container da imagem */
+.camera-card-image-container {
+  flex: 1;
+  position: relative;
+  background: #000;
+  overflow: hidden;
+  min-height: 200px;
+}
+
+.camera-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: all 0.3s ease;
+}
+
+.camera-card.expanded .camera-card-image {
+  object-fit: contain;
+}
+
+/* Overlays */
+.loading-overlay,
+.error-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.loading-overlay {
+  flex-direction: column;
+  gap: 1rem;
+  color: white;
+}
+
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-top: 3px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+.error-overlay {
+  color: white;
+}
+
+.error-message {
+  text-align: center;
+  padding: 1rem;
+}
+
+.error-message p {
+  margin: 0 0 1rem 0;
+  color: #ef4444;
+}
+
+.retry-btn {
+  background: #ef4444;
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.retry-btn:hover {
+  background: #dc2626;
+}
+
+/* Footer do card */
+.camera-card-footer {
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.8);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.camera-card-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+}
+
+.quality-badge {
+  background: rgba(34, 197, 94, 0.2);
+  color: #10b981;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.update-time {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Visão noturna */
+.camera-card.night-vision .camera-card-image {
+  filter: brightness(1.2) contrast(1.1) saturate(0.8) hue-rotate(180deg);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .camera-card-header {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .camera-card-title h4 {
+    font-size: 0.9rem;
+  }
+  
+  .camera-card-controls {
+    gap: 0.2rem;
+  }
+  
+  .control-btn {
+    padding: 0.3rem;
+    min-width: 28px;
+    height: 28px;
+  }
+  
+  .icon {
+    font-size: 0.75rem;
+  }
+  
+  .camera-card-footer {
+    padding: 0.4rem 0.75rem;
+  }
+  
+  .camera-card-info {
+    font-size: 0.7rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .camera-card-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  
+  .camera-card-controls {
+    justify-content: center;
+  }
+  
+  .camera-card-title {
+    text-align: center;
+  }
+  
+  .camera-card-info {
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: center;
+  }
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.camera-card {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Estados de hover melhorados */
+.camera-card:hover .camera-card-image {
+  transform: scale(1.02);
+}
+
+.camera-card:active {
+  transform: scale(0.98);
+}
+
+/* Scrollbar personalizada para cards com overflow */
+.camera-card-image-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.camera-card-image-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.camera-card-image-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.camera-card-image-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+} 

@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { FaTimes, FaMoon, FaExpand, FaCompress, FaSync, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
+import { FaTimes, FaMoon, FaExpand, FaCompress, FaSync, FaDownload, FaChevronLeft, FaChevronRight, FaList, FaUndo } from 'react-icons/fa';
 import "./styles.css";
 
-function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamera, hasPrevious, hasNext }) {
+function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecificCamera, onReopenAllCameras, activeCameras, currentCameraId }) {
     // Estados
     const [state, setState] = useState({
         currentImageUrl: imageUrl,
         isNightVision: false,
         isLoading: false,
         error: null,
-        isFullscreen: false
+        isFullscreen: false,
+        showCameraMenu: false
     });
     
     // Refs
@@ -29,6 +30,25 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
     const setStateValue = useCallback((key, value) => {
         setState(prevState => ({ ...prevState, [key]: value }));
     }, []);
+
+    // Função para fechar câmera atual
+    const handleCloseCurrentCamera = useCallback(() => {
+        if (currentCameraId && onCloseSpecificCamera) {
+            onCloseSpecificCamera(currentCameraId);
+        }
+    }, [currentCameraId, onCloseSpecificCamera]);
+
+    // Função para reabrir todas as câmeras
+    const handleReopenAll = useCallback(() => {
+        if (onReopenAllCameras) {
+            onReopenAllCameras();
+        }
+    }, [onReopenAllCameras]);
+
+    // Função para alternar menu de câmeras
+    const toggleCameraMenu = useCallback(() => {
+        setStateValue('showCameraMenu', !state.showCameraMenu);
+    }, [state.showCameraMenu, setStateValue]);
     
     // Handlers
     const toggleFullscreen = useCallback(() => {
@@ -100,15 +120,15 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
         const difference = touchStartX.current - touchEndX.current;
         const minSwipeDistance = 50;
         
-        if (difference > minSwipeDistance && hasNext) {
-            onNextCamera();
-        } else if (difference < -minSwipeDistance && hasPrevious) {
-            onPreviousCamera();
+        if (difference > minSwipeDistance && next) {
+            next();
+        } else if (difference < -minSwipeDistance && previous) {
+            previous();
         }
         
         touchStartX.current = null;
         touchEndX.current = null;
-    }, [hasPrevious, hasNext, onNextCamera, onPreviousCamera]);
+    }, [previous, next]);
     
     // Efeitos
     useEffect(() => {
@@ -147,9 +167,9 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
     // Componentes UI
     const renderNavigationButtons = () => (
         <>
-            {hasPrevious && (
+            {previous && (
                 <button
-                    onClick={onPreviousCamera}
+                    onClick={previous}
                     className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-6 rounded-full bg-black/90 hover:bg-gray-900 transition-colors duration-200 flex flex-col items-center gap-1 md:gap-2 group z-[10000]"
                     title="Câmera anterior"
                 >
@@ -158,9 +178,9 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
                 </button>
             )}
 
-            {hasNext && (
+            {next && (
                 <button
-                    onClick={onNextCamera}
+                    onClick={next}
                     className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-6 rounded-full bg-black/90 hover:bg-gray-900 transition-colors duration-200 flex flex-col items-center gap-1 md:gap-2 group z-[10000]"
                     title="Próxima câmera"
                 >
@@ -207,11 +227,40 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
                     active={isNightVision}
                 />
 
+                {/* Botão para fechar câmera atual - apenas se há múltiplas câmeras */}
+                {activeCameras && activeCameras.length > 1 && (
+                    <ActionButton
+                        onClick={handleCloseCurrentCamera}
+                        title="Fechar câmera atual"
+                        icon={<FaTimes className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
+                        label="Fechar"
+                    />
+                )}
+
+                {/* Botão para menu de câmeras - apenas se há múltiplas câmeras */}
+                {activeCameras && activeCameras.length > 1 && (
+                    <ActionButton
+                        onClick={toggleCameraMenu}
+                        title="Menu de câmeras"
+                        icon={<FaList className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
+                        label="Câmeras"
+                        active={state.showCameraMenu}
+                    />
+                )}
+
+                {/* Botão para reabrir todas as câmeras */}
+                <ActionButton
+                    onClick={handleReopenAll}
+                    title="Reabrir todas as câmeras fechadas"
+                    icon={<FaUndo className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
+                    label="Reabrir"
+                />
+
                 <ActionButton
                     onClick={close}
-                    title="Fechar"
+                    title="Fechar todas as câmeras"
                     icon={<FaTimes className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                    label="Fechar"
+                    label="Sair"
                 />
             </div>
         </div>
@@ -291,6 +340,55 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
             )}
 
             {renderBottomMenu()}
+
+            {/* Menu de câmeras */}
+            {state.showCameraMenu && activeCameras && activeCameras.length > 1 && (
+                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg shadow-xl p-3 z-[10001] max-w-sm w-full mx-4">
+                    <div className="text-white text-sm font-medium mb-2 text-center">Câmeras Ativas</div>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {activeCameras.map((camera, index) => (
+                            <div 
+                                key={camera.id} 
+                                className={`flex items-center justify-between p-2 rounded-lg transition-colors duration-200 ${
+                                    camera.link === imageUrl 
+                                        ? 'bg-blue-600/50 border border-blue-400' 
+                                        : 'bg-gray-700/50 hover:bg-gray-600/50'
+                                }`}
+                            >
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-white text-sm font-medium truncate">
+                                        {camera.name}
+                                    </div>
+                                    <div className="text-gray-400 text-xs">
+                                        {index + 1} de {activeCameras.length}
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2 ml-2">
+                                    {camera.link === imageUrl && (
+                                        <span className="text-blue-400 text-xs">Atual</span>
+                                    )}
+                                    <button
+                                        onClick={() => onCloseSpecificCamera(camera.id)}
+                                        className="p-1 rounded-full bg-red-600 hover:bg-red-700 transition-colors duration-200"
+                                        title="Fechar esta câmera"
+                                    >
+                                        <FaTimes className="text-white text-xs" />
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-gray-600">
+                        <button
+                            onClick={handleReopenAll}
+                            className="w-full p-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors duration-200 flex items-center justify-center gap-2"
+                        >
+                            <FaUndo className="text-xs" />
+                            Reabrir Todas as Câmeras
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
@@ -299,10 +397,12 @@ FullScreenImage.propTypes = {
     imageUrl: PropTypes.string.isRequired,
     close: PropTypes.func.isRequired,
     title: PropTypes.string,
-    onPreviousCamera: PropTypes.func,
-    onNextCamera: PropTypes.func,
-    hasPrevious: PropTypes.bool,
-    hasNext: PropTypes.bool
+    next: PropTypes.func,
+    previous: PropTypes.func,
+    onCloseSpecificCamera: PropTypes.func,
+    onReopenAllCameras: PropTypes.func,
+    activeCameras: PropTypes.array,
+    currentCameraId: PropTypes.number
 };
 
 export default FullScreenImage;

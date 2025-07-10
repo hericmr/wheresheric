@@ -12,44 +12,125 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
+import Stroke from 'ol/style/Stroke';
+import Fill from 'ol/style/Fill';
+import GeoJSON from 'ol/format/GeoJSON';
 import { Navbar, Container, Row, Col, Card, Button, Badge, Modal } from 'react-bootstrap';
 import CameraLayer from '../CameraLayer';
-import { cityCameras } from '../../cityCameras';
-import FullScreenImage from '../FullScreenImage';
+import CameraGrid from '../CameraGrid';
 import { calculateDistance } from '../../utils/calculateDistance';
+import { cityCameras } from '../../cityCameras';
 import './styles.css';
 
 const PROXIMITY_THRESHOLD = 50; // meters
 
 const Viewer = () => {
+  console.log('Viewer component rendering');
   const [location, setLocation] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('Conectando...');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true);
-  const [showFullScreenImage, setShowFullScreenImage] = useState(false);
-  const [fullScreenImageUrl, setFullScreenImageUrl] = useState('');
-  const [fullScreenImageTitle, setFullScreenImageTitle] = useState('');
-  const [currentProximityCameraId, setCurrentProximityCameraId] = useState(null);
+  const [cameras, setCameras] = useState([]); // Câmeras do Supabase
+  const [activeCameras, setActiveCameras] = useState([]); // Câmeras ativas no grid
+  const [cameraGridVisible, setCameraGridVisible] = useState(false); // Visibilidade do grid
+  const [cameraGridPosition, setCameraGridPosition] = useState('expanded'); // Posição do grid
+  const [closedCameras, setClosedCameras] = useState(new Set()); // Câmeras fechadas pelo usuário
 
   const mapRef = useRef();
   const mapObject = useRef(null);
   const markerSource = useRef(new VectorSource());
   const markerFeature = useRef(null);
+  const coverageSource = useRef(new VectorSource()); // Source para áreas de cobertura
 
   const handleCloseAboutModal = () => setShowAboutModal(false);
   const handleShowAboutModal = () => setShowAboutModal(true);
 
-  const handleOpenFullScreenImage = useCallback((imageUrl, title) => {
-    setFullScreenImageUrl(imageUrl);
-    setFullScreenImageTitle(title);
-    setShowFullScreenImage(true);
+  // Função para ativar câmeras via clique no mapa
+  const handleCameraClick = useCallback((clickedCameras) => {
+    console.log('Camera clicked on map:', clickedCameras);
+    
+    // Filtrar câmeras que não estão fechadas pelo usuário
+    const availableCameras = clickedCameras.filter(camera => !closedCameras.has(camera.id));
+    
+    if (availableCameras.length > 0) {
+      setActiveCameras(availableCameras);
+      setCameraGridVisible(true);
+      setCameraGridPosition('expanded');
+      console.log('Activated cameras from map click:', availableCameras.map(c => c.name));
+    } else {
+      console.log('All clicked cameras are closed by user');
+    }
+  }, [closedCameras]);
+
+  // Função para detectar câmeras relevantes sem imposição
+  const detectRelevantCameras = useCallback((location, cameras) => {
+    return cameras.filter(camera => {
+      // Pular câmeras fechadas pelo usuário
+      if (closedCameras.has(camera.id)) {
+        return false;
+      }
+      
+      // Verificar se está dentro da área de cobertura
+      if (camera.coverage_area) {
+        try {
+          const geoJsonFormat = new GeoJSON();
+          const feature = geoJsonFormat.readFeature(camera.coverage_area, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: 'EPSG:3857',
+          });
+          
+          const point = new Point(fromLonLat([location.lng, location.lat]));
+          if (feature.getGeometry().intersectsCoordinate(point.getCoordinates())) {
+            return true;
+          }
+        } catch (error) {
+          console.error('Error checking coverage area for camera:', camera.name, error);
+        }
+      }
+      
+      // Fallback para proximidade por distância
+      const distance = calculateDistance(
+        location.lat,
+        location.lng,
+        camera.lat,
+        camera.lng
+      );
+      
+      return distance <= PROXIMITY_THRESHOLD;
+    });
+  }, [closedCameras]);
+
+  // Função para fechar câmera específica
+  const handleCloseCamera = useCallback((cameraId) => {
+    setClosedCameras(prev => new Set([...prev, cameraId]));
+    setActiveCameras(prev => prev.filter(cam => cam.id !== cameraId));
+    
+    // Se não há mais câmeras ativas, esconder o grid
+    if (activeCameras.length <= 1) {
+      setCameraGridVisible(false);
+    }
+    
+    console.log('Camera closed by user:', cameraId);
+  }, [activeCameras.length]);
+
+  // Função para fechar todas as câmeras
+  const handleCloseAllCameras = useCallback(() => {
+    setActiveCameras([]);
+    setCameraGridVisible(false);
+    setClosedCameras(new Set());
+    console.log('All cameras closed');
   }, []);
 
-  const handleCloseFullScreenImage = useCallback(() => {
-    setShowFullScreenImage(false);
-    setFullScreenImageUrl('');
-    setFullScreenImageTitle('');
+  // Função para reabrir todas as câmeras fechadas
+  const handleReopenAllCameras = useCallback(() => {
+    setClosedCameras(new Set());
+    console.log('All cameras reopened');
+  }, []);
+
+  // Função para mudar posição do grid
+  const handleGridPositionChange = useCallback((newPosition) => {
+    setCameraGridPosition(newPosition);
   }, []);
 
   // Define o estilo do ícone do Heric
@@ -61,37 +142,61 @@ const Viewer = () => {
     }),
   }), []);
 
+  // Style for coverage areas - Melhorado conforme Fase 1.3
+  const coverageStyle = useMemo(() => new Style({
+    stroke: new Stroke({
+      color: 'rgba(255, 0, 0, 0.8)',
+      width: 3,
+    }),
+    fill: new Fill({
+      color: 'rgba(255, 0, 0, 0.2)',
+    }),
+  }), []);
+
   // Inicializa o mapa apenas uma vez, quando o DOM está pronto
   useLayoutEffect(() => {
     if (mapObject.current || !mapRef.current) return;
+    
+    // Criar camada de cobertura separada conforme Fase 1.1
+    const coverageLayer = new VectorLayer({
+      source: coverageSource.current,
+      style: coverageStyle,
+      zIndex: 1, // Garantir que fique acima do mapa base
+    });
+    
     mapObject.current = new Map({
       target: mapRef.current,
       layers: [
         new TileLayer({ source: new OSM() }),
         new VectorLayer({ source: markerSource.current }),
+        coverageLayer, // Usar camada separada para cobertura
       ],
       view: new View({
         center: fromLonLat([-43.2096, -22.9035]), // Centro padrão (Rio de Janeiro)
-        zoom: 15,
+        zoom: 18,
       }),
     });
     // Força o updateSize após um pequeno delay para garantir renderização
     setTimeout(() => {
       mapObject.current && mapObject.current.updateSize();
     }, 200);
-  }, []);
+  }, [coverageStyle]); // Add coverageStyle to dependencies
 
   // Atualiza a posição do marcador e a view quando a localização muda
   useEffect(() => {
     if (!location || !mapObject.current) return;
+    
     const coords = fromLonLat([location.lng, location.lat]);
+    
     // Atualiza a view
     mapObject.current.getView().setCenter(coords);
+    
     // Atualiza o marcador
     markerSource.current.clear();
     markerFeature.current = new Feature({ geometry: new Point(coords) });
     markerFeature.current.setStyle(hericIconStyle);
     markerSource.current.addFeature(markerFeature.current);
+    
     // Garante que o mapa se ajuste ao novo tamanho
     setTimeout(() => {
       mapObject.current && mapObject.current.updateSize();
@@ -142,38 +247,61 @@ const Viewer = () => {
     };
   }, []);
 
-  // Proximity logic
+  // Fetch cameras from Supabase and display coverage areas - Corrigido conforme Fase 1
   useEffect(() => {
-    if (location) {
-      let closestCamera = null;
-      let minDistance = Infinity;
-
-      cityCameras.forEach(camera => {
-        const distance = calculateDistance(
-          location.lat,
-          location.lng,
-          camera.lat,
-          camera.lng
-        );
-
-        if (distance < minDistance) {
-          minDistance = distance;
-          closestCamera = camera;
+    const fetchCameras = async () => {
+      // Usar câmeras de teste em vez das do Supabase
+      const testCameras = cityCameras;
+      
+      setCameras(testCameras);
+      coverageSource.current.clear();
+      
+      const geoJsonFormat = new GeoJSON();
+      testCameras.forEach(camera => {
+        if (camera.coverage_area) {
+          try {
+            // Corrigir projeção de coordenadas conforme Fase 1.2
+            const feature = geoJsonFormat.readFeature(camera.coverage_area, {
+              dataProjection: 'EPSG:4326',
+              featureProjection: 'EPSG:3857',
+            });
+            
+            coverageSource.current.addFeature(feature);
+          } catch (error) {
+            console.error('Error processing coverage area for camera:', camera.name, error);
+          }
         }
       });
+      
+      // Forçar atualização do mapa
+      if (mapObject.current) {
+        mapObject.current.render();
+      }
+    };
 
-      if (closestCamera && minDistance <= PROXIMITY_THRESHOLD) {
-        if (!showFullScreenImage || currentProximityCameraId !== closestCamera.id) {
-          handleOpenFullScreenImage(closestCamera.link, closestCamera.name);
-          setCurrentProximityCameraId(closestCamera.id);
+    fetchCameras();
+  }, []);
+
+  // Proximity logic - Simplificada para usar grid
+  useEffect(() => {
+    if (location) {
+      const relevantCameras = detectRelevantCameras(location, cameras);
+      
+      if (relevantCameras.length > 0) {
+        setActiveCameras(relevantCameras);
+        setCameraGridVisible(true);
+        
+        if (relevantCameras.length > 1) {
+          console.log('Showing multiple cameras in coverage area:', relevantCameras.map(c => c.name));
+        } else {
+          console.log('Showing single camera in coverage area:', relevantCameras[0].name);
         }
-      } else if (showFullScreenImage && currentProximityCameraId) {
-        // Close if moved out of proximity of the current camera
-        handleCloseFullScreenImage();
-        setCurrentProximityCameraId(null);
+      } else {
+        setActiveCameras([]);
+        setCameraGridVisible(false);
       }
     }
-  }, [location, showFullScreenImage, currentProximityCameraId, handleOpenFullScreenImage, handleCloseFullScreenImage]);
+  }, [location, cameras, detectRelevantCameras]);
 
   return (
     <div className="viewer-page">
@@ -205,7 +333,7 @@ const Viewer = () => {
               {panelOpen ? '⮜' : '⮞'}
             </Button>
             <div ref={mapRef} id="map" className="map-container"></div>
-            {mapObject.current && <CameraLayer map={mapObject.current} cameras={cityCameras} onCameraClick={handleOpenFullScreenImage} />}
+            {mapObject.current && <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} />}
           </Col>
           {panelOpen && (
             <Col xs={12} md={3} className="info-col order-1 order-md-2 d-none d-md-block">
@@ -250,11 +378,15 @@ const Viewer = () => {
         </Modal.Footer>
       </Modal>
 
-      {showFullScreenImage && (
-        <FullScreenImage
-          imageUrl={fullScreenImageUrl}
-          title={fullScreenImageTitle}
-          close={handleCloseFullScreenImage}
+      {cameraGridVisible && (
+        <CameraGrid
+          cameras={activeCameras}
+          visible={cameraGridVisible}
+          onCloseCamera={handleCloseCamera}
+          onCloseAll={handleCloseAllCameras}
+          onReopenAll={handleReopenAllCameras}
+          position={cameraGridPosition}
+          onPositionChange={handleGridPositionChange}
         />
       )}
     </div>
@@ -262,3 +394,4 @@ const Viewer = () => {
 };
 
 export default Viewer;
+

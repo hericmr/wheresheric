@@ -1,29 +1,68 @@
 export const cityCameras = [
   {
-    id: 'cam-avenida',
-    name: 'Câmera Avenida da Praia Estatua Iemanja',
-    lat: -23.985111, // 23°59\'06.4\"S
-    lng: -46.308861, // 46°18\'31.9\"W
-    icon: 'MdCameraAlt', // Nome do ícone do react-icons/md
-    info: 'Câmera de monitoramento da Avenida da praia.',
-    link: 'https://egov.santos.sp.gov.br/santosmapeada/css/img/cameras/cam0432/snap_c1.jpg?&t=1752069590600&t=1752069596034'
+    id: '1',
+    name: 'Câmera Centro',
+    lat: -22.9035,
+    lng: -43.2096,
+    link: 'https://picsum.photos/800/600?random=1',
+    info: 'Câmera de monitoramento do centro da cidade',
+    icon: 'camera',
+    coverage_area: {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-43.2106, -22.9045],
+          [-43.2086, -22.9045],
+          [-43.2086, -22.9025],
+          [-43.2106, -22.9025],
+          [-43.2106, -22.9045]
+        ]]
+      }
+    }
   },
   {
-    id: 'cam-aquario',
-    name: 'Câmera Aquário',
-    lat: -23.98652778, // 23°59'11.5"S
-    lng: -46.30855556, // 46°18'30.8"W
-    icon: 'MdCameraAlt',
-    info: 'Câmera de monitoramento do Aquário de Santos.',
-    link: 'https://egov.santos.sp.gov.br/santosmapeada/css/img/cameras/cam0451/snap_c1.jpg?&t=1752085357769'
+    id: '2',
+    name: 'Câmera Lateral',
+    lat: -22.8995,
+    lng: -43.2056,
+    link: 'https://picsum.photos/800/600?random=2',
+    info: 'Câmera de monitoramento lateral',
+    icon: 'camera',
+    coverage_area: {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-43.2066, -22.9005],
+          [-43.2046, -22.9005],
+          [-43.2046, -22.8985],
+          [-43.2066, -22.8985],
+          [-43.2066, -22.9005]
+        ]]
+      }
+    }
   },
   {
-    id: 'cam-CANAL6',
-    name: 'Câmera Canal 6',
-    lat: -23.983831705749136,
-    lng:  -46.309269190313216,
-    icon: 'MdCameraAlt',
-    info: 'Câmera de monitoramento da Avenida da praia.',
-    link: 'https://egov.santos.sp.gov.br/santosmapeada/css/img/cameras/cam1593/snap_c1.jpg?&t=1752085869412&t=1752085897354'
+    id: '3',
+    name: 'Câmera Entrada',
+    lat: -22.9055,
+    lng: -43.2116,
+    link: 'https://picsum.photos/800/600?random=3',
+    info: 'Câmera de monitoramento da entrada',
+    icon: 'camera',
+    coverage_area: {
+      type: 'Feature',
+      geometry: {
+        type: 'Polygon',
+        coordinates: [[
+          [-43.2126, -22.9065],
+          [-43.2106, -22.9065],
+          [-43.2106, -22.9045],
+          [-43.2126, -22.9045],
+          [-43.2126, -22.9065]
+        ]]
+      }
+    }
   }
-];
+]; 

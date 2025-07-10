@@ -18,14 +18,15 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
-  "homepage": "https://hericmr.github.io/wheresheric",
+  "homepage": "https://hericmr.github.io/onde_esta_heric",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
-    "deploy": "gh-pages -d build"
+    "deploy": "gh-pages -d build",
+    "deploy:manual": "./deploy.sh"
   },
   "eslintConfig": {
     "extends": [
