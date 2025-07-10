@@ -1,0 +1,265 @@
+/* Container principal do grid */
+.camera-grid-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transition: all 0.3s ease;
+}
+
+.camera-grid-container.animating {
+  pointer-events: none;
+}
+
+/* Header do grid */
+.camera-grid-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 1001;
+}
+
+.camera-grid-title h3 {
+  color: white;
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.camera-grid-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.control-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  min-width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.control-btn.reopen-btn {
+  background: rgba(34, 197, 94, 0.2);
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.control-btn.reopen-btn:hover {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+.control-btn.close-btn {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.control-btn.close-btn:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+/* Grid de câmeras */
+.camera-grid {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  transition: all 0.3s ease;
+}
+
+/* Layout Mobile (Vertical) */
+.camera-grid-vertical {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.camera-grid-vertical .camera-card {
+  width: 100%;
+  max-width: none;
+  min-height: 300px;
+}
+
+/* Layout Desktop (Grid) */
+.camera-grid-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.camera-grid-grid .camera-card {
+  min-height: 300px;
+  max-height: 500px;
+}
+
+/* Estados de posição */
+.camera-grid-minimized {
+  transform: translateY(calc(100% - 60px));
+}
+
+.camera-grid-expanded {
+  transform: translateY(0);
+}
+
+.camera-grid-fullscreen {
+  transform: translateY(0);
+}
+
+.camera-grid-fullscreen .camera-grid-grid {
+  grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+}
+
+.camera-grid-fullscreen .camera-card {
+  min-height: 400px;
+  max-height: 600px;
+}
+
+/* Indicador minimizado */
+.camera-grid-minimized-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(0, 0, 0, 0.9);
+  padding: 0.75rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: white;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.expand-btn {
+  background: rgba(59, 130, 246, 0.8);
+  border: none;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.expand-btn:hover {
+  background: rgba(59, 130, 246, 1);
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .camera-grid-header {
+    padding: 0.75rem;
+  }
+  
+  .camera-grid-title h3 {
+    font-size: 1rem;
+  }
+  
+  .camera-grid-controls {
+    gap: 0.25rem;
+  }
+  
+  .control-btn {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    min-width: 36px;
+  }
+  
+  .camera-grid {
+    padding: 0.75rem;
+  }
+  
+  .camera-grid-vertical {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+  
+  .camera-grid-grid {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .camera-grid-header {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: stretch;
+  }
+  
+  .camera-grid-controls {
+    justify-content: center;
+  }
+  
+  .camera-grid-title h3 {
+    text-align: center;
+  }
+}
+
+/* Animações */
+@keyframes slideIn {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOut {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
+.camera-grid-container {
+  animation: slideIn 0.3s ease;
+}
+
+.camera-grid-container.animating {
+  animation: none;
+}
+
+/* Scrollbar personalizada */
+.camera-grid::-webkit-scrollbar {
+  width: 8px;
+}
+
+.camera-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.camera-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+}
+
+.camera-grid::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+} 
