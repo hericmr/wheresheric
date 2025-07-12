@@ -18,10 +18,10 @@
     "react-scripts": "5.0.1",
     "web-vitals": "^2.1.4"
   },
-  "homepage": "https://hericmr.github.io/onde_esta_heric",
+  "homepage": "https://hericmr.github.io/wheresheric",
   "scripts": {
     "start": "react-scripts start",
-    "build": "PUBLIC_URL=https://hericmr.github.io/onde_esta_heric react-scripts build",
+    "build": "PUBLIC_URL=https://hericmr.github.io/wheresheric react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
