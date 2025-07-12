@@ -19,10 +19,8 @@ import { Navbar, Container, Row, Col, Card, Button, Badge, Modal } from 'react-b
 import { useNavigate } from 'react-router-dom';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
-import { calculateDistance } from '../../utils/calculateDistance';
 import './styles.css';
 
-const PROXIMITY_THRESHOLD = 50; // meters
 
 const Viewer = () => {
   const navigate = useNavigate();
@@ -71,7 +69,6 @@ const Viewer = () => {
       if (closedCameras.has(camera.id)) {
         return false;
       }
-      
       // Verificar se está dentro da área de cobertura
       if (camera.coverage_area) {
         try {
@@ -80,7 +77,6 @@ const Viewer = () => {
             dataProjection: 'EPSG:4326',
             featureProjection: 'EPSG:3857',
           });
-          
           const point = new Point(fromLonLat([location.lng, location.lat]));
           if (feature.getGeometry().intersectsCoordinate(point.getCoordinates())) {
             return true;
@@ -89,16 +85,8 @@ const Viewer = () => {
           console.error('Error checking coverage area for camera:', camera.name, error);
         }
       }
-      
-      // Fallback para proximidade por distância
-      const distance = calculateDistance(
-        location.lat,
-        location.lng,
-        camera.lat,
-        camera.lng
-      );
-      
-      return distance <= PROXIMITY_THRESHOLD;
+      // Fallback para proximidade por distância foi removido
+      return false;
     });
   }, [closedCameras]);
 
@@ -258,6 +246,12 @@ const Viewer = () => {
       if (error) {
         console.error('Error fetching cameras:', error);
       } else {
+        console.log('Cameras loaded from Supabase:', data);
+        // Log YouTube cameras specifically
+        const youtubeCameras = data?.filter(camera => camera.youtube_link);
+        if (youtubeCameras?.length > 0) {
+          console.log('YouTube cameras found:', youtubeCameras);
+        }
         setCameras(data);
       }
     };
