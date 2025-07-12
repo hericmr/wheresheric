@@ -3,10 +3,11 @@ import PropTypes from "prop-types";
 import { FaTimes, FaMoon, FaExpand, FaCompress, FaSync, FaDownload, FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import "../assets/FullScreenImage.css";
 
-function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamera, hasPrevious, hasNext }) {
+function FullScreenImage({ imageUrl, youtubeLink, close, title, onPreviousCamera, onNextCamera, hasPrevious, hasNext }) {
     // Estados
     const [state, setState] = useState({
         currentImageUrl: imageUrl,
+        youtubeLink: youtubeLink, // Initialize youtubeLink in state
         isNightVision: false,
         isLoading: false,
         error: null,
@@ -122,6 +123,8 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
     
     // Efeito para atualizar a imagem periodicamente
     useEffect(() => {
+        if (state.youtubeLink) return; // Do not update if it's a YouTube video
+
         let animationFrameId;
         let lastUpdate = Date.now();
 
@@ -142,7 +145,7 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
                 clearTimeout(updateTimeoutRef.current);
             }
         };
-    }, [imageUrl, setStateValue, updateUrlWithTimestamp]);
+    }, [imageUrl, setStateValue, updateUrlWithTimestamp, state.youtubeLink]);
     
     // Componentes UI
     const renderNavigationButtons = () => (
@@ -262,14 +265,25 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
                     </div>
                 )}
                 
-                <img
-                    ref={imageRef}
-                    src={currentImageUrl}
-                    alt={title || "Imagem em tela cheia"}
-                    className={`w-full h-full object-contain transition-all duration-300 ${isNightVision ? "night-vision" : ""}`}
-                    onLoad={handleImageLoad}
-                    onError={handleImageError}
-                />
+                {state.youtubeLink ? (
+                    <iframe
+                        src={state.youtubeLink}
+                        title={title || "YouTube video player"}
+                        frameBorder="0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                        className="w-full h-full object-contain"
+                    ></iframe>
+                ) : (
+                    <img
+                        ref={imageRef}
+                        src={currentImageUrl}
+                        alt={title || "Imagem em tela cheia"}
+                        className={`w-full h-full object-contain transition-all duration-300 ${isNightVision ? "night-vision" : ""}`}
+                        onLoad={handleImageLoad}
+                        onError={handleImageError}
+                    />
+                )}
 
                 {/* Indicador de navegação por toque - apenas em dispositivos móveis */}
                 <div className="absolute bottom-24 left-0 right-0 flex justify-center pointer-events-none md:hidden">
@@ -296,7 +310,8 @@ function FullScreenImage({ imageUrl, close, title, onPreviousCamera, onNextCamer
 }
 
 FullScreenImage.propTypes = {
-    imageUrl: PropTypes.string.isRequired,
+    imageUrl: PropTypes.string,
+    youtubeLink: PropTypes.string, // New prop for YouTube link
     close: PropTypes.func.isRequired,
     title: PropTypes.string,
     onPreviousCamera: PropTypes.func,

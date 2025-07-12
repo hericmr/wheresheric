@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { FaTimes, FaMoon, FaExpand, FaCompress, FaSync, FaDownload, FaChevronLeft, FaChevronRight, FaList, FaUndo } from 'react-icons/fa';
+import { FaTimes, FaMoon, FaExpand, FaCompress, FaSync, FaDownload, FaChevronLeft, FaChevronRight, FaList, FaUndo, FaYoutube } from 'react-icons/fa';
+import YouTubeVideo from '../YouTubeVideo';
 import "./styles.css";
 
-function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecificCamera, onReopenAllCameras, activeCameras, currentCameraId }) {
+function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecificCamera, onReopenAllCameras, activeCameras, currentCameraId, camera }) {
     // Estados
     const [state, setState] = useState({
         currentImageUrl: imageUrl,
@@ -11,7 +12,8 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
         isLoading: false,
         error: null,
         isFullscreen: false,
-        showCameraMenu: false
+        showCameraMenu: false,
+        showYouTube: false
     });
     
     // Refs
@@ -20,7 +22,31 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
     const touchStartX = useRef(null);
     const touchEndX = useRef(null);
     
-    const { currentImageUrl, isNightVision, isLoading, error, isFullscreen } = state;
+    const { currentImageUrl, isNightVision, isLoading, error, isFullscreen, showYouTube } = state;
+    
+    // Função para verificar se é um link do YouTube
+    const isYouTubeLink = useCallback((url) => {
+        if (!url) return false;
+        return url.includes('youtube.com') || url.includes('youtu.be');
+    }, []);
+
+    // Função para extrair o ID do vídeo do YouTube
+    const getYouTubeVideoId = useCallback((url) => {
+        if (!url) return null;
+        
+        const patterns = [
+            /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/,
+            /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]+)/,
+            /(?:youtu\.be\/)([a-zA-Z0-9_-]+)/
+        ];
+        
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) return match[1];
+        }
+        
+        return null;
+    }, []);
     
     // Funções auxiliares
     const updateUrlWithTimestamp = useCallback(() => {
@@ -30,6 +56,11 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
     const setStateValue = useCallback((key, value) => {
         setState(prevState => ({ ...prevState, [key]: value }));
     }, []);
+
+    // Função para alternar entre imagem e vídeo do YouTube
+    const toggleYouTube = useCallback(() => {
+        setStateValue('showYouTube', !showYouTube);
+    }, [showYouTube, setStateValue]);
 
     // Função para fechar câmera atual
     const handleCloseCurrentCamera = useCallback(() => {
@@ -49,6 +80,22 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
     const toggleCameraMenu = useCallback(() => {
         setStateValue('showCameraMenu', !state.showCameraMenu);
     }, [state.showCameraMenu, setStateValue]);
+
+    const handleYouTubeDownload = useCallback(() => {
+        // Abrir o vídeo no YouTube em nova aba
+        const videoId = getYouTubeVideoId(camera?.youtube_link || imageUrl);
+        if (videoId) {
+            window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
+        }
+    }, [camera?.youtube_link, imageUrl, getYouTubeVideoId]);
+
+    const handleYouTubeRefresh = useCallback(() => {
+        // Recarregar o iframe do YouTube
+        setStateValue('isLoading', true);
+        setTimeout(() => {
+            setStateValue('isLoading', false);
+        }, 1000);
+    }, [setStateValue]);
     
     // Handlers
     const toggleFullscreen = useCallback(() => {
@@ -140,8 +187,13 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
         return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
     }, [setStateValue]);
     
-    // Efeito para atualizar a imagem periodicamente
+    // Efeito para atualizar a imagem periodicamente (apenas para imagens, não vídeos)
     useEffect(() => {
+        // Se é um vídeo do YouTube, não atualizar automaticamente
+        if (isYouTubeLink(imageUrl) || camera?.youtube_link) {
+            return;
+        }
+
         let animationFrameId;
         let lastUpdate = Date.now();
 
@@ -162,7 +214,10 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
                 clearTimeout(updateTimeoutRef.current);
             }
         };
-    }, [imageUrl, setStateValue, updateUrlWithTimestamp]);
+    }, [imageUrl, setStateValue, updateUrlWithTimestamp, camera?.youtube_link, isYouTubeLink]);
+
+    // Verificar se deve mostrar vídeo do YouTube
+    const shouldShowYouTube = (camera?.youtube_link || isYouTubeLink(imageUrl)) && showYouTube;
     
     // Componentes UI
     const renderNavigationButtons = () => (
@@ -194,18 +249,29 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
     const renderBottomMenu = () => (
         <div className="absolute bottom-0 left-0 right-0 flex justify-center p-1 md:p-2 z-[10000]">
             <div className="bg-black/90 rounded-lg shadow-xl p-1 md:p-2 flex flex-row gap-1 overflow-x-auto max-w-full">
+                {/* Botão para alternar entre imagem e vídeo do YouTube */}
+                {(camera?.youtube_link || isYouTubeLink(imageUrl)) && (
+                    <ActionButton
+                        onClick={toggleYouTube}
+                        title={showYouTube ? "Voltar para imagem" : "Alternar para vídeo do YouTube"}
+                        icon={<FaYoutube className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
+                        label={showYouTube ? "Imagem" : "Vídeo"}
+                        active={showYouTube}
+                    />
+                )}
+
                 <ActionButton
-                    onClick={handleDownload}
-                    title="Baixar imagem"
+                    onClick={showYouTube ? handleYouTubeDownload : handleDownload}
+                    title={showYouTube ? "Abrir no YouTube" : "Baixar imagem"}
                     icon={<FaDownload className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                    label="Baixar"
+                    label={showYouTube ? "YouTube" : "Baixar"}
                 />
 
                 <ActionButton
-                    onClick={handleRefresh}
-                    title="Atualizar imagem"
+                    onClick={showYouTube ? handleYouTubeRefresh : handleRefresh}
+                    title={showYouTube ? "Recarregar vídeo" : "Atualizar imagem"}
                     icon={<FaSync className={`text-white text-lg md:text-xl group-hover:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />}
-                    label="Atualizar"
+                    label={showYouTube ? "Recarregar" : "Atualizar"}
                     disabled={isLoading}
                 />
 
@@ -272,7 +338,7 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             onClick={onClick}
             className={`p-1 md:p-2 rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors duration-200 flex flex-row items-center gap-1 md:gap-2 group
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                ${active ? 'bg-gray-800' : ''}`}
+                ${active ? 'bg-red-600' : ''}`}
             title={title}
             disabled={disabled}
         >
@@ -280,6 +346,39 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             <span className="text-xs text-gray-500 group-hover:text-gray-400">{label}</span>
         </button>
     );
+
+    // Se deve mostrar vídeo do YouTube
+    if (shouldShowYouTube) {
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-95 flex justify-center items-center z-[9999]">
+                <div 
+                    className="relative w-full h-full flex items-center justify-center"
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                >
+                    {renderNavigationButtons()}
+
+                    <YouTubeVideo
+                        youtubeLink={camera?.youtube_link || imageUrl}
+                        title={title || 'Vídeo ao Vivo'}
+                        onClose={close}
+                        onExpand={toggleFullscreen}
+                        expanded={isFullscreen}
+                        onSettings={() => console.log('Settings')}
+                        onDownload={handleYouTubeDownload}
+                        onRefresh={handleYouTubeRefresh}
+                        onNightVision={toggleNightVision}
+                        isNightVision={isNightVision}
+                        isLoading={isLoading}
+                        error={error}
+                    />
+                </div>
+
+                {renderBottomMenu()}
+            </div>
+        );
+    }
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-95 flex justify-center items-center z-[9999]">
@@ -402,7 +501,8 @@ FullScreenImage.propTypes = {
     onCloseSpecificCamera: PropTypes.func,
     onReopenAllCameras: PropTypes.func,
     activeCameras: PropTypes.array,
-    currentCameraId: PropTypes.number
+    currentCameraId: PropTypes.number,
+    camera: PropTypes.object
 };
 
 export default FullScreenImage;
