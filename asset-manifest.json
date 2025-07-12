@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/onde_esta_heric/static/css/main.e492b504.css",
-    "main.js": "/onde_esta_heric/static/js/main.eccb5e3c.js",
+    "main.js": "/onde_esta_heric/static/js/main.f1057f48.js",
     "static/js/453.a3c1d153.chunk.js": "/onde_esta_heric/static/js/453.a3c1d153.chunk.js",
     "index.html": "/onde_esta_heric/index.html",
     "main.e492b504.css.map": "/onde_esta_heric/static/css/main.e492b504.css.map",
-    "main.eccb5e3c.js.map": "/onde_esta_heric/static/js/main.eccb5e3c.js.map",
+    "main.f1057f48.js.map": "/onde_esta_heric/static/js/main.f1057f48.js.map",
     "453.a3c1d153.chunk.js.map": "/onde_esta_heric/static/js/453.a3c1d153.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e492b504.css",
-    "static/js/main.eccb5e3c.js"
+    "static/js/main.f1057f48.js"
   ]
 }
