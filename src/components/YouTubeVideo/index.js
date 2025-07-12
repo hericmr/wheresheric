@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { FaExpand, FaVolumeUp, FaSync, FaDownload, FaCog, FaTimes } from 'react-icons/fa';
 import './styles.css';
@@ -17,8 +17,6 @@ const YouTubeVideo = ({
   isLoading = false,
   error = null
 }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
-
   // Extrair o ID do vídeo do link do YouTube
   const getVideoId = useCallback((url) => {
     if (!url) return null;
@@ -40,11 +38,18 @@ const YouTubeVideo = ({
 
   const videoId = getVideoId(youtubeLink);
 
+  console.log(`YouTubeVideo component:`, {
+    youtubeLink,
+    videoId,
+    title
+  });
+
   const handleExpand = useCallback(() => {
     onExpand();
   }, [onExpand]);
 
   if (!videoId) {
+    console.error(`Invalid YouTube link for ${title}:`, youtubeLink);
     return (
       <div className="youtube-video-error">
         <div className="error-message">
@@ -55,7 +60,7 @@ const YouTubeVideo = ({
     );
   }
 
-  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=${isPlaying ? 1 : 0}&mute=0&controls=1&rel=0`;
+  const embedUrl = `https://www.youtube.com/embed/${videoId}?autoplay=1&mute=1&controls=1&rel=0`;
 
   return (
     <div className={`youtube-video-container ${expanded ? 'expanded' : ''}`}>
@@ -147,7 +152,7 @@ const YouTubeVideo = ({
           frameBorder="0"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
-          onLoad={() => setIsPlaying(false)}
+          onLoad={() => {}}
           onError={() => console.error('Erro ao carregar vídeo do YouTube')}
         />
       </div>

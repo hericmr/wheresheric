@@ -16,6 +16,15 @@ const CameraGrid = ({
   const [layout, setLayout] = useState('grid');
   const [animating, setAnimating] = useState(false);
 
+  // Debug logging for cameras
+  useEffect(() => {
+    console.log('CameraGrid received cameras:', cameras);
+    const youtubeCameras = cameras?.filter(camera => camera.youtube_link);
+    if (youtubeCameras?.length > 0) {
+      console.log('CameraGrid YouTube cameras:', youtubeCameras);
+    }
+  }, [cameras]);
+
   // Hook para detectar layout responsivo
   useEffect(() => {
     const handleResize = () => {

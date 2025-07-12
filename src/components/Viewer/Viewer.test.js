@@ -2,7 +2,6 @@ import { render, screen, waitFor, act } from '@testing-library/react';
 import Viewer from './index';
 import { supabase } from '../../supabaseClient';
 import { cityCameras } from '../../cityCameras';
-import { calculateDistance } from '../../utils/calculateDistance';
 
 // Mock supabase and calculateDistance
 jest.mock('../../supabaseClient', () => ({
@@ -24,20 +23,15 @@ jest.mock('../../supabaseClient', () => ({
   },
 }));
 
-jest.mock('../../utils/calculateDistance');
 
 describe('Viewer Component - Proximity Feature', () => {
   beforeEach(() => {
     // Reset mocks before each test
     supabase.channel.mockClear();
-    calculateDistance.mockClear();
     supabase.from.mockClear();
   });
 
   test('should display FullScreenImage when Heric is in proximity of a camera', async () => {
-    // Mock calculateDistance to return a distance within the threshold
-    calculateDistance.mockReturnValue(10); // 10 meters, which is < PROXIMITY_THRESHOLD (50m)
-
     // Mock initial location data from Supabase
     supabase.channel().on().subscribe.mockImplementationOnce((callback) => {
       callback({ new: { lat: cityCameras[0].lat, lng: cityCameras[0].lng, created_at: new Date().toISOString() } });
@@ -56,9 +50,6 @@ describe('Viewer Component - Proximity Feature', () => {
   });
 
   test('should not display FullScreenImage when Heric is not in proximity of any camera', async () => {
-    // Mock calculateDistance to return a distance outside the threshold
-    calculateDistance.mockReturnValue(100); // 100 meters, which is > PROXIMITY_THRESHOLD (50m)
-
     // Mock initial location data from Supabase
     supabase.channel().on().subscribe.mockImplementationOnce((callback) => {
       callback({ new: { lat: 0, lng: 0, created_at: new Date().toISOString() } });
@@ -114,9 +105,6 @@ describe('Viewer Component - Proximity Feature', () => {
         }))
       };
     });
-
-    // Mock calculateDistance for fallback proximity detection
-    calculateDistance.mockReturnValue(30); // Within threshold
 
     let locationCallback;
     supabase.channel().on().subscribe.mockImplementation((callback) => {
@@ -207,9 +195,6 @@ describe('Viewer Component - Proximity Feature', () => {
       };
     });
 
-    // Mock calculateDistance for fallback proximity detection
-    calculateDistance.mockReturnValue(30); // Within threshold initially
-
     let locationCallback;
     supabase.channel().on().subscribe.mockImplementation((callback) => {
       locationCallback = callback;
@@ -235,7 +220,7 @@ describe('Viewer Component - Proximity Feature', () => {
     }, { timeout: 2000 });
 
     // Change distance to outside threshold
-    calculateDistance.mockReturnValue(100); // Outside threshold
+    // No longer needed as calculateDistance is removed
 
     // Move target outside coverage area
     await act(async () => {
@@ -316,9 +301,6 @@ describe('Viewer Component - Proximity Feature', () => {
         }))
       };
     });
-
-    // Mock calculateDistance for fallback proximity detection
-    calculateDistance.mockReturnValue(25); // Within threshold for both
 
     let locationCallback;
     supabase.channel().on().subscribe.mockImplementation((callback) => {
