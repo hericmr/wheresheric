@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { fromLonLat } from 'ol/proj';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
@@ -16,7 +16,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
   const coverageLayerRef = useRef(null);
 
   // Style for coverage areas
-  const coverageStyle = new Style({
+  const coverageStyle = useMemo(() => new Style({
     stroke: new Stroke({
       color: 'rgba(255, 0, 0, 0.8)',
       width: 3,
@@ -24,7 +24,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
     fill: new Fill({
       color: 'rgba(255, 0, 0, 0.2)',
     }),
-  });
+  }), []);
 
   // Renderizar polígonos de cobertura conforme Fase 3.1
   useEffect(() => {
@@ -109,9 +109,12 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
 
     const handleClick = (event) => {
       console.log('CameraLayer: Map clicked at pixel:', event.pixel);
-      const feature = map.forEachFeatureAtPixel(event.pixel, (feat) => {
-        console.log('CameraLayer: Feature at pixel:', feat);
-        return feat;
+      const feature = map.forEachFeatureAtPixel(event.pixel, (feat, layer) => {
+        if (layer === vectorLayerRef.current) {
+          console.log('CameraLayer: Feature at pixel:', feat);
+          return feat;
+        }
+        return undefined;
       });
       if (feature) {
         console.log('CameraLayer: Detected feature:', feature);
@@ -162,7 +165,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
       cameraSourceRef.current.addFeature(feature);
       console.log('CameraLayer: Added marker for camera:', camera.name);
     });
-  }, [cameras]);
+  }, [cameras, cameraSourceRef]);
 
   return null;
 };

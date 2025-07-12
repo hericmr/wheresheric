@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { supabase } from '../../supabaseClient';
 import 'ol/ol.css';
 import Map from 'ol/Map';
@@ -46,7 +46,7 @@ const CameraEditor = () => {
   const [drawingInstructions, setDrawingInstructions] = useState('Clique e arraste para desenhar um retângulo (4 pontos)');
   const [selectingLocation, setSelectingLocation] = useState(false);
 
-  const drawStyle = new Style({
+  const drawStyle = useMemo(() => new Style({
     stroke: new Stroke({
       color: 'blue',
       width: 3,
@@ -54,16 +54,16 @@ const CameraEditor = () => {
     fill: new Fill({
       color: 'rgba(0, 0, 255, 0.1)',
     }),
-  });
+  }), []);
 
   // Style for camera marker
-  const cameraMarkerStyle = new Style({
+  const cameraMarkerStyle = useMemo(() => new Style({
     image: new Icon({
       anchor: [0.5, 1],
       src: 'https://openlayers.org/en/latest/examples/data/icon.png', // Placeholder icon
       scale: 0.7,
     }),
-  });
+  }), []);
 
   
 
