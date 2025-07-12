@@ -346,8 +346,8 @@ const Viewer = () => {
           <Modal.Title>Sobre o Projeto</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <h5>Projeto de Rastreamento em Tempo Real</h5>
-          <p>Sistema desenvolvido com React, OpenLayers e Supabase para monitorar em tempo real a localização do Heric. Exibe dados geográficos em um mapa interativo, com integração a câmeras de vigilância urbana para apoio visual.</p>
+          <p>Este é um projeto de geolocalização em tempo real para rastrear a localização do Heric.</p>
+          <p>Desenvolvido com React, OpenLayers e Supabase.</p>
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleCloseAboutModal}>
