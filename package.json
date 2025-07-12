@@ -1,7 +1,25 @@
 {
-  "name": "client",
-  "version": "0.1.0",
+  "name": "onde-estao-heric",
+  "version": "1.0.0",
+  "description": "Sistema de geolocalização em tempo real para rastrear a localização do Heric",
   "private": true,
+  "author": "Heric MR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hericmr/wheresheric.git"
+  },
+  "keywords": [
+    "geolocalização",
+    "rastreamento",
+    "câmeras",
+    "segurança",
+    "tempo real",
+    "mapa",
+    "OpenLayers",
+    "React",
+    "Supabase"
+  ],
   "dependencies": {
     "@supabase/supabase-js": "^2.50.4",
     "@testing-library/dom": "^10.4.0",

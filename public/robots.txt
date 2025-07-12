@@ -1,3 +1,11 @@
-# https://www.robotstxt.org/robotstxt.html
+# Onde Está o Heric - Robots.txt
+# Sistema de geolocalização em tempo real
+
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemap
+Sitemap: https://hericmr.github.io/wheresheric/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 1

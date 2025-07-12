@@ -104,43 +104,84 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
         const features = feature.get('features');
         const size = features.length;
         if (size > 1) {
-          // Cluster
+          // Cluster - Design melhorado
+          const radius = Math.min(20 + (size * 2), 35); // Tamanho dinâmico baseado na quantidade
           return [
             new Style({
               image: new CircleStyle({
-                radius: 20,
-                fill: new Fill({ color: '#ff4444' }),
-                stroke: new Stroke({ color: '#ffffff', width: 2 })
+                radius: radius,
+                fill: new Fill({ 
+                  color: size > 5 ? '#ff6b6b' : '#4ecdc4' // Cor diferente para clusters grandes
+                }),
+                stroke: new Stroke({ 
+                  color: '#ffffff', 
+                  width: 3 
+                })
               })
             }),
             new Style({
               text: new Text({
                 text: size.toString(),
                 fill: new Fill({ color: '#ffffff' }),
-                stroke: new Stroke({ color: '#000000', width: 1 }),
-                font: 'bold 14px Arial'
+                stroke: new Stroke({ color: '#000000', width: 2 }),
+                font: `bold ${Math.min(14 + (size * 0.5), 18)}px Arial`,
+                offsetY: 1
               })
             })
           ];
         } else {
-          // Câmera individual
-          const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-video"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`;
+          // Câmera individual - Design melhorado
+          const camera = features[0].get('camera');
+          const hasYoutube = camera && camera.youtube_link;
+          
+          // Ícone SVG original feather-video (câmera de segurança)
+          const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-video">
+            <polygon points="23 7 16 12 23 17 23 7"></polygon>
+            <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+          </svg>`;
+          
           const encodedSvg = encodeURIComponent(svgString);
           const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
+          
           return [
+            // Círculo de fundo
             new Style({
               image: new CircleStyle({
-                radius: 15,
-                fill: new Fill({ color: 'white' }),
-                stroke: new Stroke({ color: 'black', width: 1 })
+                radius: 18,
+                fill: new Fill({ 
+                  color: hasYoutube ? '#ff6b6b' : '#4ecdc4' // Cor diferente para YouTube
+                }),
+                stroke: new Stroke({ 
+                  color: '#ffffff', 
+                  width: 2 
+                })
               })
             }),
+            // Ícone da câmera
             new Style({
               image: new Icon({
                 src: dataUrl,
-                scale: 1,
-                anchor: [0.5, 0.9],
+                scale: 0.8,
+                anchor: [0.5, 0.5],
               }),
+            }),
+            // Indicador de status (ponto pequeno)
+            new Style({
+              image: new CircleStyle({
+                radius: 3,
+                fill: new Fill({ 
+                  color: '#00ff00' // Verde para indicar ativo
+                }),
+                stroke: new Stroke({ 
+                  color: '#ffffff', 
+                  width: 1 
+                })
+              }),
+              geometry: function(feature) {
+                const geometry = feature.getGeometry();
+                const coordinates = geometry.getCoordinates();
+                return new Point([coordinates[0] + 10, coordinates[1] + 10]);
+              }
             })
           ];
         }
