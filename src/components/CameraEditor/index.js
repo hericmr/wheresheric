@@ -14,13 +14,16 @@ import Fill from 'ol/style/Fill';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { Container, Row, Col, Form, Button, Card, ListGroup } from 'react-bootstrap';
+import { Container, Row, Col, Form, Button, Card, ListGroup, Navbar } from 'react-bootstrap';
 import Draw from 'ol/interaction/Draw';
 import Modify from 'ol/interaction/Modify';
 import GeoJSON from 'ol/format/GeoJSON';
 import './styles.css';
 
+import { useNavigate } from 'react-router-dom';
+
 const CameraEditor = () => {
+  const navigate = useNavigate();
   const mapRef = useRef();
   const mapObject = useRef(null);
   const markerSource = useRef(new VectorSource());
@@ -41,6 +44,7 @@ const CameraEditor = () => {
   const [drawnFeature, setDrawnFeature] = useState(null); // Stores GeoJSON of drawn polygon
   const [cameras, setCameras] = useState([]); // List of all cameras from Supabase
   const [drawingInstructions, setDrawingInstructions] = useState('Clique e arraste para desenhar um retângulo (4 pontos)');
+  const [selectingLocation, setSelectingLocation] = useState(false);
 
   const drawStyle = new Style({
     stroke: new Stroke({
@@ -61,23 +65,7 @@ const CameraEditor = () => {
     }),
   });
 
-  // Função auxiliar para criar um polígono retangular
-  const createRectanglePolygon = (startCoord, endCoord) => {
-    const minX = Math.min(startCoord[0], endCoord[0]);
-    const maxX = Math.max(startCoord[0], endCoord[0]);
-    const minY = Math.min(startCoord[1], endCoord[1]);
-    const maxY = Math.max(startCoord[1], endCoord[1]);
-
-    const coordinates = [
-      [minX, minY],
-      [maxX, minY],
-      [maxX, maxY],
-      [minX, maxY],
-      [minX, minY] // Fechar o polígono
-    ];
-
-    return coordinates;
-  };
+  
 
   useEffect(() => {
     if (!mapRef.current) return;
@@ -142,8 +130,10 @@ const CameraEditor = () => {
         });
       });
 
-      // Add draw interaction initially
-      mapObject.current.addInteraction(drawInteraction.current);
+      // Add draw interaction initially only if not selecting location
+      if (!selectingLocation) {
+        mapObject.current.addInteraction(drawInteraction.current);
+      }
     }
 
     return () => {
@@ -156,7 +146,7 @@ const CameraEditor = () => {
         mapObject.current = null;
       }
     };
-  }, []); // Empty dependency array to run once on mount
+  }, [cameraMarkerStyle, drawStyle, selectingLocation]); // Empty dependency array to run once on mount
 
   // Update marker position when lat/lng changes
   useEffect(() => {
@@ -175,6 +165,56 @@ const CameraEditor = () => {
     const { name, value } = e.target;
     setCameraDetails(prev => ({ ...prev, [name]: value }));
   };
+
+  const handleSelectLocationClick = () => {
+    setSelectingLocation(true);
+    setDrawingInstructions('Clique no mapa para selecionar a localização da câmera.');
+    if (mapObject.current) {
+      if (drawInteraction.current) {
+        mapObject.current.removeInteraction(drawInteraction.current);
+      }
+      if (modifyInteraction.current) {
+        mapObject.current.removeInteraction(modifyInteraction.current);
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!mapObject.current) return;
+
+    const map = mapObject.current;
+
+    if (selectingLocation) {
+      const clickHandler = (event) => {
+        const coords = event.coordinate;
+        const lonLat = toLonLat(coords);
+        setCameraDetails(prev => ({
+          ...prev,
+          lat: lonLat[1].toFixed(6),
+          lng: lonLat[0].toFixed(6),
+        }));
+        setSelectingLocation(false);
+        setDrawingInstructions('Clique e arraste para desenhar um retângulo (4 pontos)');
+        map.un('singleclick', clickHandler);
+      };
+      map.on('singleclick', clickHandler);
+
+      return () => {
+        map.un('singleclick', clickHandler);
+      };
+    } else {
+      // Re-add draw/modify interactions when selectingLocation is false
+      if (drawnFeature) {
+        if (modifyInteraction.current) {
+          map.addInteraction(modifyInteraction.current);
+        }
+      } else {
+        if (drawInteraction.current) {
+          map.addInteraction(drawInteraction.current);
+        }
+      }
+    }
+  }, [selectingLocation, mapObject, drawnFeature]);
 
   // Validar dados antes de salvar conforme Fase 2.3
   const handleSaveCamera = async () => {
@@ -378,6 +418,17 @@ const CameraEditor = () => {
 
   return (
     <Container fluid className="camera-editor-container">
+      <Navbar bg="dark" variant="dark" expand="lg" className="mb-3">
+        <Container fluid>
+          <Navbar.Brand href="#">Editor de Câmeras</Navbar.Brand>
+          <Navbar.Toggle aria-controls="basic-navbar-nav" />
+          <Navbar.Collapse id="basic-navbar-nav">
+            <div className="ms-auto">
+              <Button variant="secondary" onClick={() => navigate('/viewer')}>Voltar para o Mapa</Button>
+            </div>
+          </Navbar.Collapse>
+        </Container>
+      </Navbar>
       <Row>
         <Col md={6}>
           <Card className="mb-3">
@@ -417,6 +468,11 @@ const CameraEditor = () => {
                     </Form.Group>
                   </Col>
                 </Row>
+                <Form.Group className="mb-3">
+                  <Button variant="outline-primary" size="sm" onClick={handleSelectLocationClick}>
+                    Selecionar no Mapa
+                  </Button>
+                </Form.Group>
                 <Form.Group className="mb-3">
                   <Form.Label>Link da Imagem</Form.Label>
                   <Form.Control
