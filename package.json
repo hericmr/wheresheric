@@ -21,7 +21,7 @@
   "homepage": "https://hericmr.github.io/onde_esta_heric",
   "scripts": {
     "start": "react-scripts start",
-    "build": "PUBLIC_URL=/onde_esta_heric react-scripts build",
+    "build": "PUBLIC_URL=https://hericmr.github.io/onde_esta_heric react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
