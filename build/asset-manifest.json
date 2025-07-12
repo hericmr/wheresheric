@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "/onde_esta_heric/static/css/main.56fd3b1b.css",
+    "main.js": "/onde_esta_heric/static/js/main.ca7f8010.js",
+    "static/js/453.a3c1d153.chunk.js": "/onde_esta_heric/static/js/453.a3c1d153.chunk.js",
+    "index.html": "/onde_esta_heric/index.html",
+    "main.56fd3b1b.css.map": "/onde_esta_heric/static/css/main.56fd3b1b.css.map",
+    "main.ca7f8010.js.map": "/onde_esta_heric/static/js/main.ca7f8010.js.map",
+    "453.a3c1d153.chunk.js.map": "/onde_esta_heric/static/js/453.a3c1d153.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.56fd3b1b.css",
+    "static/js/main.ca7f8010.js"
+  ]
+}

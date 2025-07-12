@@ -165,7 +165,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
       cameraSourceRef.current.addFeature(feature);
       console.log('CameraLayer: Added marker for camera:', camera.name);
     });
-  }, [cameras, cameraSourceRef]);
+  }, [cameras, cameraSourceRef, map]);
 
   return null;
 };
