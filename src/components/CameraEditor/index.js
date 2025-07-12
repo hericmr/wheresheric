@@ -21,6 +21,7 @@ import GeoJSON from 'ol/format/GeoJSON';
 import './styles.css';
 
 import { useNavigate } from 'react-router-dom';
+import CircleStyle from 'ol/style/Circle';
 
 const CameraEditor = () => {
   const navigate = useNavigate();
@@ -63,14 +64,63 @@ const CameraEditor = () => {
     }),
   }), []);
 
-  // Style for camera marker
-  const cameraMarkerStyle = useMemo(() => new Style({
-    image: new Icon({
-      anchor: [0.5, 1],
-      src: 'https://openlayers.org/en/latest/examples/data/icon.png', // Placeholder icon
-      scale: 0.7,
-    }),
-  }), []);
+  // Style for camera marker - Melhorado para consistência
+  const cameraMarkerStyle = useMemo(() => {
+    const hasYoutube = cameraDetails.youtube_link;
+    
+    // Ícone SVG original feather-video (câmera de segurança)
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-video">
+      <polygon points="23 7 16 12 23 17 23 7"></polygon>
+      <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+    </svg>`;
+    
+    const encodedSvg = encodeURIComponent(svgString);
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
+    
+    return function(feature) {
+      return [
+        // Círculo de fundo
+        new Style({
+          image: new CircleStyle({
+            radius: 18,
+            fill: new Fill({ 
+              color: hasYoutube ? '#ff6b6b' : '#4ecdc4'
+            }),
+            stroke: new Stroke({ 
+              color: '#ffffff', 
+              width: 2 
+            })
+          })
+        }),
+        // Ícone da câmera
+        new Style({
+          image: new Icon({
+            src: dataUrl,
+            scale: 0.8,
+            anchor: [0.5, 0.5],
+          }),
+        }),
+        // Indicador de status
+        new Style({
+          image: new CircleStyle({
+            radius: 3,
+            fill: new Fill({ 
+              color: '#00ff00'
+            }),
+            stroke: new Stroke({ 
+              color: '#ffffff', 
+              width: 1 
+            })
+          }),
+          geometry: function(feature) {
+            const geometry = feature.getGeometry();
+            const coordinates = geometry.getCoordinates();
+            return new Point([coordinates[0] + 10, coordinates[1] + 10]);
+          }
+        })
+      ];
+    };
+  }, [cameraDetails.youtube_link]);
 
   
 

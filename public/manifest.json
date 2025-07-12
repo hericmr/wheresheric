@@ -1,6 +1,7 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
+  "short_name": "Onde Está o Heric",
+  "name": "Onde Está o Heric - Geolocalização em Tempo Real",
+  "description": "Sistema de geolocalização em tempo real para rastrear a localização do Heric",
   "icons": [
     {
       "src": "favicon.ico",
@@ -20,6 +21,9 @@
   ],
   "start_url": ".",
   "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "theme_color": "#4ecdc4",
+  "background_color": "#ffffff",
+  "orientation": "portrait-primary",
+  "categories": ["navigation", "utilities", "productivity"],
+  "lang": "pt-BR"
 }
