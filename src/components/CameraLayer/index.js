@@ -44,7 +44,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
         map.removeLayer(coverageLayerRef.current);
       }
     };
-  }, [map]);
+  }, [map, coverageStyle]);
 
   // Carregar polígonos das câmeras conforme Fase 3.1
   useEffect(() => {
@@ -74,6 +74,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
 
     vectorLayerRef.current = new VectorLayer({
       source: cameraSourceRef.current,
+      zIndex: 2, // Ensure camera icons are on top
       style: function (feature) {
         const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="black" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-video"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>`;
         const encodedSvg = encodeURIComponent(svgString);
@@ -107,13 +108,30 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
     map.addLayer(vectorLayerRef.current);
 
     const handleClick = (event) => {
-      const feature = map.forEachFeatureAtPixel(event.pixel, (feat) => feat);
+      console.log('CameraLayer: Map clicked at pixel:', event.pixel);
+      const feature = map.forEachFeatureAtPixel(event.pixel, (feat) => {
+        console.log('CameraLayer: Feature at pixel:', feat);
+        return feat;
+      });
+      if (feature) {
+        console.log('CameraLayer: Detected feature:', feature);
+        console.log('CameraLayer: Feature name:', feature.get('name'));
+      }
       if (feature && feature.get('name') && onCameraClick) {
         const camera = cameras.find(cam => cam.name === feature.get('name'));
         if (camera) {
+          console.log('CameraLayer: Found camera:', camera.name);
           // Passar apenas a câmera clicada
           onCameraClick([camera]);
+        } else {
+          console.log('CameraLayer: No camera found for feature name:', feature.get('name'));
         }
+      } else if (!feature) {
+        console.log('CameraLayer: No feature detected at click location.');
+      } else if (!feature.get('name')) {
+        console.log('CameraLayer: Feature detected, but no name property.');
+      } else if (!onCameraClick) {
+        console.log('CameraLayer: onCameraClick prop is missing.');
       }
     };
 
@@ -125,10 +143,13 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
       }
       map.un('click', handleClick);
     };
-  }, [map, cameras, onCameraClick]);
+  }, [map, onCameraClick]);
 
   useEffect(() => {
     if (!cameraSourceRef.current) return;
+
+    console.log('CameraLayer: Updating camera markers.');
+    console.log('CameraLayer: Cameras received:', cameras);
 
     cameraSourceRef.current.clear();
     cameras.forEach(camera => {
@@ -139,6 +160,7 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
         info: camera.info,
       });
       cameraSourceRef.current.addFeature(feature);
+      console.log('CameraLayer: Added marker for camera:', camera.name);
     });
   }, [cameras]);
 

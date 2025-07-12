@@ -16,15 +16,16 @@ import Stroke from 'ol/style/Stroke';
 import Fill from 'ol/style/Fill';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Navbar, Container, Row, Col, Card, Button, Badge, Modal } from 'react-bootstrap';
+import { useNavigate } from 'react-router-dom';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
 import { calculateDistance } from '../../utils/calculateDistance';
-import { cityCameras } from '../../cityCameras';
 import './styles.css';
 
 const PROXIMITY_THRESHOLD = 50; // meters
 
 const Viewer = () => {
+  const navigate = useNavigate();
   console.log('Viewer component rendering');
   const [location, setLocation] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('Conectando...');
@@ -247,35 +248,17 @@ const Viewer = () => {
     };
   }, []);
 
-  // Fetch cameras from Supabase and display coverage areas - Corrigido conforme Fase 1
+  // Fetch cameras from Supabase and display coverage areas
   useEffect(() => {
     const fetchCameras = async () => {
-      // Usar câmeras de teste em vez das do Supabase
-      const testCameras = cityCameras;
-      
-      setCameras(testCameras);
-      coverageSource.current.clear();
-      
-      const geoJsonFormat = new GeoJSON();
-      testCameras.forEach(camera => {
-        if (camera.coverage_area) {
-          try {
-            // Corrigir projeção de coordenadas conforme Fase 1.2
-            const feature = geoJsonFormat.readFeature(camera.coverage_area, {
-              dataProjection: 'EPSG:4326',
-              featureProjection: 'EPSG:3857',
-            });
-            
-            coverageSource.current.addFeature(feature);
-          } catch (error) {
-            console.error('Error processing coverage area for camera:', camera.name, error);
-          }
-        }
-      });
-      
-      // Forçar atualização do mapa
-      if (mapObject.current) {
-        mapObject.current.render();
+      const { data, error } = await supabase
+        .from('cameras') // Assuming your table name is 'cameras'
+        .select('*');
+
+      if (error) {
+        console.error('Error fetching cameras:', error);
+      } else {
+        setCameras(data);
       }
     };
 
@@ -315,7 +298,8 @@ const Viewer = () => {
                 {connectionStatus}
               </Badge>
               {lastUpdate && <span className="text-light me-2">Última Atualização: {lastUpdate}</span>}
-              <Button variant="outline-light" onClick={handleShowAboutModal}>Sobre</Button>
+              <Button variant="outline-light" onClick={handleShowAboutModal} className="me-2">Sobre</Button>
+              <Button variant="outline-light" onClick={() => navigate('/edit-cameras')}>Editar Câmeras</Button>
             </div>
           </Navbar.Collapse>
         </Container>
