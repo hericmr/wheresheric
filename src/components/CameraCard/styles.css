@@ -321,3 +321,19 @@
 .camera-card-image-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5);
 } 
+
+/* YouTube Button */
+.youtube-btn {
+  background: rgba(255, 0, 0, 0.2) !important;
+  color: #ff0000 !important;
+}
+
+.youtube-btn:hover {
+  background: rgba(255, 0, 0, 0.4) !important;
+  color: #ffffff !important;
+}
+
+.youtube-btn.active {
+  background: #ff0000 !important;
+  color: #ffffff !important;
+} 

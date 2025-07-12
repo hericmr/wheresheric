@@ -38,6 +38,7 @@ const CameraEditor = () => {
     lat: '',
     lng: '',
     link: '',
+    youtube_link: '', // Adicionado o campo youtube_link
     info: '',
     icon: 'MdCameraAlt',
   });
@@ -45,6 +46,12 @@ const CameraEditor = () => {
   const [cameras, setCameras] = useState([]); // List of all cameras from Supabase
   const [drawingInstructions, setDrawingInstructions] = useState('Clique e arraste para desenhar um retângulo (4 pontos)');
   const [selectingLocation, setSelectingLocation] = useState(false);
+
+  // Function to validate YouTube embed links
+  const isValidYouTubeEmbedLink = (url) => {
+    const youtubeEmbedRegex = /^https:\/\/(www\.)?youtube\.com\/embed\/[a-zA-Z0-9_-]+(\?.*)?$/;
+    return youtubeEmbedRegex.test(url);
+  };
 
   const drawStyle = useMemo(() => new Style({
     stroke: new Stroke({
@@ -222,6 +229,12 @@ const CameraEditor = () => {
       alert('Por favor, desenhe a área de cobertura da câmera no mapa.');
       return;
     }
+
+    // Validate YouTube link
+    if (cameraDetails.youtube_link && !isValidYouTubeEmbedLink(cameraDetails.youtube_link)) {
+      alert('Por favor, insira um link de incorporação válido do YouTube (ex: https://www.youtube.com/embed/VIDEO_ID).');
+      return;
+    }
     
     // Validar se o GeoJSON é válido
     try {
@@ -246,6 +259,7 @@ const CameraEditor = () => {
           lat: parseFloat(cameraDetails.lat),
           lng: parseFloat(cameraDetails.lng),
           link: cameraDetails.link,
+          youtube_link: cameraDetails.youtube_link,
           info: cameraDetails.info,
           icon: cameraDetails.icon,
           coverage_area: drawnFeature,
@@ -262,6 +276,7 @@ const CameraEditor = () => {
             lat: parseFloat(cameraDetails.lat),
             lng: parseFloat(cameraDetails.lng),
             link: cameraDetails.link,
+            youtube_link: cameraDetails.youtube_link, // Save youtube_link
             info: cameraDetails.info,
             icon: cameraDetails.icon,
             coverage_area: drawnFeature,
@@ -301,6 +316,7 @@ const CameraEditor = () => {
       lat: '',
       lng: '',
       link: '',
+      youtube_link: '',
       info: '',
       icon: 'MdCameraAlt',
     });
@@ -327,6 +343,7 @@ const CameraEditor = () => {
       lat: camera.lat,
       lng: camera.lng,
       link: camera.link,
+      youtube_link: camera.youtube_link || '',
       info: camera.info,
       icon: camera.icon,
     });
@@ -480,6 +497,16 @@ const CameraEditor = () => {
                     name="link"
                     value={cameraDetails.link}
                     onChange={handleInputChange}
+                  />
+                </Form.Group>
+                <Form.Group className="mb-3">
+                  <Form.Label>Link do YouTube</Form.Label>
+                  <Form.Control
+                    type="text"
+                    name="youtube_link"
+                    value={cameraDetails.youtube_link}
+                    onChange={handleInputChange}
+                    placeholder="Ex: https://www.youtube.com/embed/tMYtrEBNVAU"
                   />
                 </Form.Group>
                 <Form.Group className="mb-3">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import CameraCard from '../CameraCard';
+import FullScreenManager from '../FullScreenManager';
 import './styles.css';
 
 const CameraGrid = ({ 
@@ -57,73 +58,86 @@ const CameraGrid = ({
   const containerClass = `camera-grid-container ${animating ? 'animating' : ''}`;
 
   return (
-    <div className={containerClass}>
-      {/* Header do Grid */}
-      <div className="camera-grid-header">
-        <div className="camera-grid-title">
-          <h3>Câmeras Ativas ({cameras.length})</h3>
+    <>
+      <div className={containerClass}>
+        {/* Header do Grid */}
+        <div className="camera-grid-header">
+          <div className="camera-grid-title">
+            <h3>Câmeras Ativas ({cameras.length})</h3>
+          </div>
+          
+          <div className="camera-grid-controls">
+            <button
+              onClick={toggleExpanded}
+              className="control-btn"
+              title={position === 'expanded' ? 'Minimizar' : 'Expandir'}
+            >
+              {position === 'expanded' ? '−' : '+'}
+            </button>
+            
+            <button
+              onClick={toggleFullscreen}
+              className="control-btn"
+              title={position === 'fullscreen' ? 'Sair da tela cheia' : 'Tela cheia'}
+            >
+              {position === 'fullscreen' ? '⤓' : '⤢'}
+            </button>
+            
+            <button
+              onClick={onReopenAll}
+              className="control-btn reopen-btn"
+              title="Reabrir todas as câmeras fechadas"
+            >
+              ↻
+            </button>
+            
+            <button
+              onClick={onCloseAll}
+              className="control-btn close-btn"
+              title="Fechar todas as câmeras"
+            >
+              ✕
+            </button>
+          </div>
         </div>
-        
-        <div className="camera-grid-controls">
-          <button
-            onClick={toggleExpanded}
-            className="control-btn"
-            title={position === 'expanded' ? 'Minimizar' : 'Expandir'}
-          >
-            {position === 'expanded' ? '−' : '+'}
-          </button>
-          
-          <button
-            onClick={toggleFullscreen}
-            className="control-btn"
-            title={position === 'fullscreen' ? 'Sair da tela cheia' : 'Tela cheia'}
-          >
-            {position === 'fullscreen' ? '⤓' : '⤢'}
-          </button>
-          
-          <button
-            onClick={onReopenAll}
-            className="control-btn reopen-btn"
-            title="Reabrir todas as câmeras fechadas"
-          >
-            ↻
-          </button>
-          
-          <button
-            onClick={onCloseAll}
-            className="control-btn close-btn"
-            title="Fechar todas as câmeras"
-          >
-            ✕
-          </button>
+
+        {/* Grid de Câmeras */}
+        <div className={gridClass}>
+          {cameras.map((camera) => (
+            <CameraCard
+              key={camera.id}
+              camera={camera}
+              onClose={() => onCloseCamera(camera.id)}
+              onExpand={() => handlePositionChange('fullscreen')}
+              onSettings={() => console.log('Settings for camera:', camera.name)}
+              expanded={position === 'fullscreen'}
+              quality="high"
+            />
+          ))}
         </div>
+
+        {/* Indicador de posição */}
+        {position === 'minimized' && (
+          <div className="camera-grid-minimized-indicator">
+            <span>{cameras.length} câmeras ativas</span>
+            <button onClick={toggleExpanded} className="expand-btn">
+              Expandir
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Grid de Câmeras */}
-      <div className={gridClass}>
-        {cameras.map((camera) => (
-          <CameraCard
-            key={camera.id}
-            camera={camera}
-            onClose={() => onCloseCamera(camera.id)}
-            onExpand={() => handlePositionChange('fullscreen')}
-            onSettings={() => console.log('Settings for camera:', camera.name)}
-            expanded={position === 'fullscreen'}
-            quality="high"
-          />
-        ))}
-      </div>
-
-      {/* Indicador de posição */}
-      {position === 'minimized' && (
-        <div className="camera-grid-minimized-indicator">
-          <span>{cameras.length} câmeras ativas</span>
-          <button onClick={toggleExpanded} className="expand-btn">
-            Expandir
-          </button>
-        </div>
+      {/* FullScreen Manager */}
+      {position === 'fullscreen' && (
+        <FullScreenManager
+          cameras={cameras}
+          visible={true}
+          onClose={() => handlePositionChange('expanded')}
+          onCloseSpecificCamera={onCloseCamera}
+          onReopenAllCameras={onReopenAll}
+        />
       )}
-    </div>
+    </>
   );
 };
 

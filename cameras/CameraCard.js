@@ -57,6 +57,8 @@ function CameraCard({ camera, onImageClick, index }) {
 
   // Atualiza a imagem a cada 2 segundos com crossfade
   useEffect(() => {
+    if (camera.youtube_link) return; // Do not refresh if it's a YouTube video
+
     const interval = setInterval(() => {
       setRetryCount(0);
       setPrevImageSrc(imageSrc);
@@ -71,7 +73,7 @@ function CameraCard({ camera, onImageClick, index }) {
     }, 4000);
 
     return () => clearInterval(interval);
-  }, [camera.url, imageSrc]);
+  }, [camera.url, imageSrc, camera.youtube_link]);
 
   return (
     <div className={`relative border border-gray-800 shadow-lg rounded-lg overflow-hidden bg-gray-900 ${isFullscreen ? 'hidden' : ''}`}>
@@ -145,37 +147,50 @@ function CameraCard({ camera, onImageClick, index }) {
 
       {/* Imagem com fallback e retentativa */}
       <div className="w-full h-[300px] bg-gray-900 flex items-center justify-center overflow-hidden relative">
-        {/* Imagem anterior para crossfade */}
-        {isFullscreen && (
-          <img
-            src={prevImageSrc}
-            alt=""
-            className={`absolute inset-0 w-full h-full object-cover ${
-              isTransitioning ? 'opacity-0' : 'opacity-100'
-            } transition-opacity duration-1000 ${
-              isNightVision ? "night-vision" : ""
-            }`}
-          />
-        )}
-        {/* Imagem atual */}
-        <img
-          src={imageSrc}
-          alt={camera.lugar || "Imagem da câmera"}
-          className={`w-full h-full object-cover cursor-pointer ${
-            isFullscreen ? 'absolute inset-0' : ''
-          } ${isTransitioning ? 'opacity-100' : 'opacity-100'} transition-opacity duration-1000 ${
-            isNightVision ? "night-vision" : ""
-          }`}
-          onClick={() => onImageClick({ url: camera.url, title: camera.lugar }, index)}
-          onError={handleError}
-          loading="lazy"
-          aria-label={`Clique para visualizar a câmera em ${camera.lugar || "local desconhecido"}`}
-        />
-        {/* Placeholder no caso de erro após tentativas */}
-        {imageSrc === FALLBACK_IMAGE_URL && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
-            <span className="text-gray-400 text-sm">Imagem indisponível</span>
-          </div>
+        {camera.youtube_link ? (
+          <iframe
+            src={camera.youtube_link}
+            title={camera.lugar || "YouTube video player"}
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="w-full h-full object-cover"
+          ></iframe>
+        ) : (
+          <>
+            {/* Imagem anterior para crossfade */}
+            {isFullscreen && (
+              <img
+                src={prevImageSrc}
+                alt=""
+                className={`absolute inset-0 w-full h-full object-cover ${
+                  isTransitioning ? 'opacity-0' : 'opacity-100'
+                } transition-opacity duration-1000 ${
+                  isNightVision ? "night-vision" : ""
+                }`}
+              />
+            )}
+            {/* Imagem atual */}
+            <img
+              src={imageSrc}
+              alt={camera.lugar || "Imagem da câmera"}
+              className={`w-full h-full object-cover cursor-pointer ${
+                isFullscreen ? 'absolute inset-0' : ''
+              } ${isTransitioning ? 'opacity-100' : 'opacity-100'} transition-opacity duration-1000 ${
+                isNightVision ? "night-vision" : ""
+              }`}
+              onClick={() => onImageClick({ url: camera.url, title: camera.lugar }, index)}
+              onError={handleError}
+              loading="lazy"
+              aria-label={`Clique para visualizar a câmera em ${camera.lugar || "local desconhecido"}`}
+            />
+            {/* Placeholder no caso de erro após tentativas */}
+            {imageSrc === FALLBACK_IMAGE_URL && (
+              <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
+                <span className="text-gray-400 text-sm">Imagem indisponível</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -189,8 +204,9 @@ function CameraCard({ camera, onImageClick, index }) {
 
 CameraCard.propTypes = {
   camera: PropTypes.shape({
-    url: PropTypes.string.isRequired,
+    url: PropTypes.string,
     lugar: PropTypes.string,
+    youtube_link: PropTypes.string, // Add youtube_link to propTypes
   }).isRequired,
   onImageClick: PropTypes.func.isRequired,
   index: PropTypes.number.isRequired,
