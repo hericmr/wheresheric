@@ -373,6 +373,81 @@ const CameraCard = ({
           </span>
         </div>
       </div>
+
+      {/* Camera Details Section */}
+      {camera.details && (
+        <div className="camera-card-details">
+          <div className="camera-details-header">
+            <h5>Detalhes da Câmera</h5>
+          </div>
+          <div className="camera-details-content">
+            {camera.details.camera_number && (
+              <div className="detail-item">
+                <span className="detail-label">Número:</span>
+                <span className="detail-value">{camera.details.camera_number}</span>
+              </div>
+            )}
+            {camera.details.street && (
+              <div className="detail-item">
+                <span className="detail-label">Rua:</span>
+                <span className="detail-value">{camera.details.street}</span>
+              </div>
+            )}
+            {camera.details.intersection && (
+              <div className="detail-item">
+                <span className="detail-label">Interseção:</span>
+                <span className="detail-value">{camera.details.intersection}</span>
+              </div>
+            )}
+            {camera.details.neighborhood && (
+              <div className="detail-item">
+                <span className="detail-label">Bairro:</span>
+                <span className="detail-value">{camera.details.neighborhood}</span>
+              </div>
+            )}
+            {camera.details.camera_type && (
+              <div className="detail-item">
+                <span className="detail-label">Tipo:</span>
+                <span className="detail-value">{camera.details.camera_type}</span>
+              </div>
+            )}
+            {camera.details.status && (
+              <div className="detail-item">
+                <span className="detail-label">Status:</span>
+                <span className={`detail-value status-${camera.details.status_id === '1' ? 'active' : 'inactive'}`}>
+                  {camera.details.status}
+                </span>
+              </div>
+            )}
+            {camera.details.organizational_unit && (
+              <div className="detail-item">
+                <span className="detail-label">Unidade Organizacional:</span>
+                <span className="detail-value">{camera.details.organizational_unit}</span>
+              </div>
+            )}
+            {camera.details.installation_date && (
+              <div className="detail-item">
+                <span className="detail-label">Data de Instalação:</span>
+                <span className="detail-value">{camera.details.installation_date}</span>
+              </div>
+            )}
+            {camera.details.original_id && (
+              <div className="detail-item">
+                <span className="detail-label">ID Original:</span>
+                <span className="detail-value">{camera.details.original_id}</span>
+              </div>
+            )}
+            <div className="detail-item">
+              <span className="detail-label">Coordenadas:</span>
+              <span className="detail-value">
+                {typeof camera.lat === 'number' && typeof camera.lng === 'number' 
+                  ? `${camera.lat.toFixed(6)}, ${camera.lng.toFixed(6)}`
+                  : 'N/A'}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

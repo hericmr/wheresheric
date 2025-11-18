@@ -336,4 +336,94 @@
 .youtube-btn.active {
   background: #ff0000 !important;
   color: #ffffff !important;
+}
+
+/* Camera Details Section */
+.camera-card-details {
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.camera-details-header {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.camera-details-header h5 {
+  color: white;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.camera-details-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.detail-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.detail-label {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+  min-width: 120px;
+}
+
+.detail-value {
+  color: white;
+  flex: 1;
+}
+
+.detail-value.status-active {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.detail-value.status-inactive {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+/* Scrollbar for details section */
+.camera-card-details::-webkit-scrollbar {
+  width: 6px;
+}
+
+.camera-card-details::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.camera-card-details::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.camera-card-details::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 768px) {
+  .camera-card-details {
+    padding: 0.75rem;
+    max-height: 250px;
+  }
+  
+  .detail-item {
+    font-size: 0.75rem;
+  }
+  
+  .detail-label {
+    min-width: 100px;
+  }
 } 

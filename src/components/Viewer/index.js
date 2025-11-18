@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
+import { transformCamerasFromJson } from '../../utils/cameraTransform';
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
@@ -236,24 +237,155 @@ const Viewer = () => {
     };
   }, []);
 
-  // Fetch cameras from Supabase and display coverage areas
+  // Fetch cameras from cameras_detailed.json AND Supabase (combine both)
   useEffect(() => {
     const fetchCameras = async () => {
-      const { data, error } = await supabase
-        .from('cameras') // Assuming your table name is 'cameras'
-        .select('*');
-
-      if (error) {
-        console.error('Error fetching cameras:', error);
-      } else {
-        console.log('Cameras loaded from Supabase:', data);
-        // Log YouTube cameras specifically
-        const youtubeCameras = data?.filter(camera => camera.youtube_link);
-        if (youtubeCameras?.length > 0) {
-          console.log('YouTube cameras found:', youtubeCameras);
+      const allCameras = [];
+      let jsonLoaded = false;
+      
+      // First, try to load from JSON file
+      try {
+        // Get PUBLIC_URL - in CRA, this is available at runtime
+        // In development: empty string
+        // In production: the homepage value (e.g., "/wheresheric")
+        const publicUrl = process.env.PUBLIC_URL || '';
+        
+        // Build the correct path
+        // Remove trailing slash if present, then add the filename
+        const basePath = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
+        
+        // Try multiple path strategies
+        const possiblePaths = [];
+        
+        // Strategy 1: Use PUBLIC_URL if available
+        if (basePath) {
+          possiblePaths.push(`${basePath}/cameras_detailed.json`);
         }
-        setCameras(data);
+        
+        // Strategy 2: Use absolute path from window.location (works in dev and prod)
+        const windowBase = window.location.pathname.split('/').slice(0, -1).join('/') || '';
+        if (windowBase && !possiblePaths.includes(`${windowBase}/cameras_detailed.json`)) {
+          possiblePaths.push(`${windowBase}/cameras_detailed.json`);
+        }
+        
+        // Strategy 3: Root path (works in development)
+        possiblePaths.push('/cameras_detailed.json');
+        
+        // Strategy 4: Relative to current pathname
+        const relativePath = window.location.pathname.endsWith('/') 
+          ? 'cameras_detailed.json' 
+          : './cameras_detailed.json';
+        possiblePaths.push(relativePath);
+        
+        console.log(`[Camera Loader] PUBLIC_URL: "${publicUrl}"`);
+        console.log(`[Camera Loader] Window location: ${window.location.href}`);
+        console.log(`[Camera Loader] Window origin: ${window.location.origin}`);
+        console.log(`[Camera Loader] Window pathname: ${window.location.pathname}`);
+        console.log(`[Camera Loader] Will try paths:`, possiblePaths);
+        
+        let camerasJson = null;
+        let successfulPath = null;
+        
+        // Try each path until one works
+        for (const jsonPath of possiblePaths) {
+          try {
+            console.log(`[Camera Loader] Attempting to load from: ${jsonPath}`);
+            const response = await fetch(jsonPath, {
+              method: 'GET',
+              headers: {
+                'Accept': 'application/json',
+              },
+              cache: 'no-cache'
+            });
+            
+            // Check content type first (before reading body)
+            const contentType = response.headers.get('content-type') || '';
+            const isJson = contentType.includes('application/json');
+            
+            if (!response.ok) {
+              console.warn(`[Camera Loader] HTTP ${response.status} from ${jsonPath}`);
+              continue; // Try next path
+            }
+            
+            // Check if response is actually JSON
+            if (!isJson) {
+              console.warn(`[Camera Loader] Not JSON (${contentType}) from ${jsonPath}`);
+              continue; // Try next path
+            }
+            
+            camerasJson = await response.json();
+            successfulPath = jsonPath;
+            console.log(`[Camera Loader] Successfully loaded from: ${jsonPath}`);
+            break; // Success!
+          } catch (err) {
+            console.warn(`[Camera Loader] Error loading from ${jsonPath}:`, err.message);
+            continue; // Try next path
+          }
+        }
+        
+        if (!camerasJson) {
+          throw new Error(`Failed to load cameras_detailed.json from any path. Tried: ${possiblePaths.join(', ')}`);
+        }
+        
+        const jsonPath = successfulPath;
+        
+        console.log('[Camera Loader] Raw JSON keys count:', Object.keys(camerasJson).length);
+        
+        if (camerasJson && Object.keys(camerasJson).length > 0) {
+          // Transform JSON data to expected format
+          const transformedCameras = transformCamerasFromJson(camerasJson);
+          
+          console.log('[Camera Loader] Cameras loaded from JSON:', transformedCameras.length);
+          if (transformedCameras.length > 0) {
+            console.log('[Camera Loader] Sample camera:', transformedCameras[0]);
+            console.log('[Camera Loader] First 3 cameras:', transformedCameras.slice(0, 3).map(c => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng })));
+            allCameras.push(...transformedCameras);
+            jsonLoaded = true;
+          } else {
+            console.warn('[Camera Loader] No valid cameras found after transformation');
+            console.warn('[Camera Loader] Raw JSON sample:', Object.values(camerasJson).slice(0, 2));
+          }
+        } else {
+          console.warn('[Camera Loader] No JSON data loaded or empty JSON');
+        }
+      } catch (error) {
+        console.error('[Camera Loader] Error fetching cameras from JSON:', error);
+        console.error('[Camera Loader] Error details:', error.message);
+        if (error.stack) {
+          console.error('[Camera Loader] Stack:', error.stack);
+        }
       }
+      
+      // Also load from Supabase (combine with JSON cameras)
+      try {
+        console.log('[Camera Loader] Loading cameras from Supabase...');
+        const { data, error: supabaseError } = await supabase
+          .from('cameras')
+          .select('*');
+
+        if (supabaseError) {
+          console.error('[Camera Loader] Error fetching cameras from Supabase:', supabaseError);
+        } else if (data && data.length > 0) {
+          console.log('[Camera Loader] Cameras loaded from Supabase:', data.length);
+          // Add Supabase cameras to the list (avoid duplicates by ID)
+          const existingIds = new Set(allCameras.map(c => c.id));
+          const newSupabaseCameras = data.filter(c => !existingIds.has(c.id));
+          if (newSupabaseCameras.length > 0) {
+            console.log('[Camera Loader] Adding', newSupabaseCameras.length, 'new cameras from Supabase');
+            allCameras.push(...newSupabaseCameras);
+          } else {
+            console.log('[Camera Loader] All Supabase cameras already exist in JSON data');
+          }
+        } else {
+          console.log('[Camera Loader] No cameras found in Supabase');
+        }
+      } catch (supabaseError) {
+        console.error('[Camera Loader] Error loading from Supabase:', supabaseError);
+      }
+      
+      // Set all cameras (JSON + Supabase)
+      console.log('[Camera Loader] Total cameras loaded:', allCameras.length);
+      setCameras(allCameras);
     };
 
     fetchCameras();
