@@ -241,7 +241,6 @@ const Viewer = () => {
   useEffect(() => {
     const fetchCameras = async () => {
       const allCameras = [];
-      let jsonLoaded = false;
       
       // First, try to load from JSON file
       try {
@@ -284,7 +283,6 @@ const Viewer = () => {
         console.log(`[Camera Loader] Will try paths:`, possiblePaths);
         
         let camerasJson = null;
-        let successfulPath = null;
         
         // Try each path until one works
         for (const jsonPath of possiblePaths) {
@@ -314,7 +312,6 @@ const Viewer = () => {
             }
             
             camerasJson = await response.json();
-            successfulPath = jsonPath;
             console.log(`[Camera Loader] Successfully loaded from: ${jsonPath}`);
             break; // Success!
           } catch (err) {
@@ -327,8 +324,6 @@ const Viewer = () => {
           throw new Error(`Failed to load cameras_detailed.json from any path. Tried: ${possiblePaths.join(', ')}`);
         }
         
-        const jsonPath = successfulPath;
-        
         console.log('[Camera Loader] Raw JSON keys count:', Object.keys(camerasJson).length);
         
         if (camerasJson && Object.keys(camerasJson).length > 0) {
@@ -340,7 +335,6 @@ const Viewer = () => {
             console.log('[Camera Loader] Sample camera:', transformedCameras[0]);
             console.log('[Camera Loader] First 3 cameras:', transformedCameras.slice(0, 3).map(c => ({ id: c.id, name: c.name, lat: c.lat, lng: c.lng })));
             allCameras.push(...transformedCameras);
-            jsonLoaded = true;
           } else {
             console.warn('[Camera Loader] No valid cameras found after transformation');
             console.warn('[Camera Loader] Raw JSON sample:', Object.values(camerasJson).slice(0, 2));
