@@ -45,7 +45,8 @@
     "eject": "react-scripts eject",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d build --dotfiles",
-    "deploy:clean": "./deploy.sh"
+    "deploy:clean": "./deploy.sh",
+    "csv-to-json": "node scripts/csv-to-json.js"
   },
   "eslintConfig": {
     "extends": [
