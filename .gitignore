@@ -31,3 +31,7 @@ node_modules/.cache/
 public/cameras/
 public/onde_esta_heric_trans/
 public/vehicle-tracking/
+
+# Temporary CSV files (source data)
+*.csv
+scripts/*.csv
