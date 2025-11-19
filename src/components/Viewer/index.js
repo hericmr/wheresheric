@@ -255,7 +255,6 @@ const Viewer = () => {
     if (autoZoomEnabled.current && mapObject.current) {
       const view = mapObject.current.getView();
       const currentCenter = view.getCenter();
-      const currentZoom = view.getZoom();
       
       // Só anima se a posição mudou significativamente ou é a primeira carga
       if (!currentCenter || 
