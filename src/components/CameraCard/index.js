@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { FaTimes, FaExpand, FaCog, FaDownload, FaSync, FaMoon, FaYoutube } from 'react-icons/fa';
+import { FaTimes, FaSync } from 'react-icons/fa';
 import YouTubeVideo from '../YouTubeVideo';
+import { useUpdate } from '../../context/UpdateContext';
 import './styles.css';
 
 const CameraCard = ({ 
@@ -15,26 +16,31 @@ const CameraCard = ({
   // Verificar se é câmera do YouTube antes de inicializar o estado
   const hasYouTubeLink = camera.youtube_link || camera.link?.toLowerCase().includes('youtube.com') || camera.link?.toLowerCase().includes('youtu.be');
   
-  console.log(`Initializing CameraCard for ${camera.name}:`, {
-    hasYouTubeLink,
-    youtube_link: camera.youtube_link,
-    link: camera.link,
-    isYouTubeLink: camera.link?.toLowerCase().includes('youtube.com') || camera.link?.toLowerCase().includes('youtu.be')
-  });
+  // URLs de fallback
+  const LOADING_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%231f2937' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%239ca3af' font-family='system-ui' font-size='14'%3ECarregando...%3C/text%3E%3C/svg%3E";
+  const ERROR_IMAGE_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='300'%3E%3Crect fill='%231f2937' width='400' height='300'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23ef4444' font-family='system-ui' font-size='14'%3EImagem indisponível%3C/text%3E%3C/svg%3E";
 
   const [state, setState] = useState({
     isLoading: !hasYouTubeLink, // Não carregar se for YouTube
     error: null,
     isNightVision: false,
-    currentImageUrl: camera.link,
+    currentImageUrl: hasYouTubeLink ? camera.link : LOADING_PLACEHOLDER,
+    prevImageUrl: null,
+    isTransitioning: false,
     isExpanded: expanded,
-    showYouTube: hasYouTubeLink
+    showYouTube: hasYouTubeLink,
+    hasLoadedOnce: false,
+    retryCount: 0
   });
 
   const imageRef = useRef(null);
   const updateTimeoutRef = useRef(null);
+  const cardRef = useRef(null);
+  const imageLoadedRef = useRef(false);
+  const MAX_RETRIES = 150;
+  const { isPaused } = useUpdate(); // Get pause state from context
 
-  const { isLoading, error, isNightVision, currentImageUrl, isExpanded, showYouTube } = state;
+  const { isLoading, error, isNightVision, currentImageUrl, prevImageUrl, isTransitioning, isExpanded, showYouTube, hasLoadedOnce, retryCount } = state;
 
   // Função para verificar se é um link do YouTube
   const isYouTubeLink = useCallback((url) => {
@@ -61,46 +67,95 @@ const CameraCard = ({
     return null;
   }, []);
 
+  // Função auxiliar para extrair a URL base (sem query parameters)
+  const getBaseUrl = useCallback((url) => {
+    if (!url) return url;
+    return url.split('?')[0];
+  }, []);
+
   // Função para atualizar URL com timestamp
   const updateUrlWithTimestamp = useCallback(() => {
     if (!camera.link) return camera.link;
-    
-    try {
-      const url = new URL(camera.link);
-      // Usar um parâmetro diferente para evitar conflitos
-      url.searchParams.set('_t', new Date().getTime().toString());
-      return url.toString();
-    } catch (error) {
-      // Fallback para URLs que não são válidas
-      const separator = camera.link.includes('?') ? '&' : '?';
-      return `${camera.link}${separator}_t=${new Date().getTime()}`;
-    }
-  }, [camera.link]);
+    const baseUrl = getBaseUrl(camera.link);
+    const d = new Date();
+    return `${baseUrl}?t=${d.getTime()}`;
+  }, [camera.link, getBaseUrl]);
 
   // Função para atualizar estado
   const setStateValue = useCallback((key, value) => {
     setState(prevState => ({ ...prevState, [key]: value }));
   }, []);
 
+  // Intersection Observer para detectar quando o card está visível
+  useEffect(() => {
+    // Don't observe if updates are paused (fullscreen is open) or if it's YouTube
+    if (isPaused || hasYouTubeLink) {
+      return;
+    }
+
+    const currentCardRef = cardRef.current;
+    if (!currentCardRef) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !isPaused) {
+            // Inicia o carregamento da imagem quando visível (apenas uma vez)
+            if (!imageLoadedRef.current) {
+              imageLoadedRef.current = true;
+              // Primeira carga: define a URL da câmera
+              setStateValue('currentImageUrl', camera.link);
+              setStateValue('prevImageUrl', camera.link);
+              setStateValue('hasLoadedOnce', false);
+            }
+          }
+        });
+      },
+      {
+        rootMargin: '50px', // Começa a carregar 50px antes de entrar na viewport
+        threshold: 0.01, // Dispara quando pelo menos 1% está visível
+      }
+    );
+
+    observer.observe(currentCardRef);
+
+    return () => {
+      if (currentCardRef) {
+        observer.unobserve(currentCardRef);
+      }
+    };
+  }, [camera.link, isPaused, hasYouTubeLink, setStateValue]);
+
   // Handlers
   const handleImageLoad = useCallback(() => {
+    if (!hasLoadedOnce) {
+      setStateValue('hasLoadedOnce', true);
+    }
     setStateValue('isLoading', false);
     setStateValue('error', null);
-  }, [setStateValue]);
+  }, [setStateValue, hasLoadedOnce]);
 
-  const handleImageError = useCallback(() => {
+  const handleImageError = useCallback((e) => {
+    // Previne loop infinito de erros
+    if (e.target) {
+      e.target.onerror = null;
+      e.target.src = ERROR_IMAGE_URL;
+    }
+    
     setStateValue('isLoading', false);
     setStateValue('error', 'Erro ao carregar a imagem');
     
-    console.warn(`Erro ao carregar imagem da câmera ${camera.name}:`, camera.link);
-    
-    // Tentar recarregar após um erro com delay maior
-    setTimeout(() => {
-      if (!error) { // Só tentar se não houver erro persistente
-        setStateValue('currentImageUrl', updateUrlWithTimestamp());
-      }
-    }, 3000);
-  }, [setStateValue, updateUrlWithTimestamp, camera.name, camera.link, error]);
+    if (retryCount < MAX_RETRIES) {
+      // Tenta recarregar a imagem até o limite de tentativas
+      setStateValue('retryCount', retryCount + 1);
+      const baseUrl = getBaseUrl(camera.link);
+      const d = new Date();
+      setStateValue('currentImageUrl', `${baseUrl}?retry=${d.getTime()}`);
+    } else {
+      // Usa a imagem de erro após atingir o limite de tentativas
+      setStateValue('currentImageUrl', ERROR_IMAGE_URL);
+    }
+  }, [setStateValue, retryCount, camera.link, getBaseUrl]);
 
   const handleRefresh = useCallback(() => {
     setStateValue('isLoading', true);
@@ -119,31 +174,10 @@ const CameraCard = ({
     setStateValue('isNightVision', !isNightVision);
   }, [isNightVision, setStateValue]);
 
-  const handleDownload = useCallback(async () => {
-    try {
-      const response = await fetch(currentImageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `camera-${camera.name}-${Date.now()}.jpg`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      setStateValue('error', 'Erro ao baixar a imagem');
-    }
-  }, [currentImageUrl, camera.name, setStateValue]);
-
   const toggleExpanded = useCallback(() => {
     setStateValue('isExpanded', !isExpanded);
     onExpand();
   }, [isExpanded, setStateValue, onExpand]);
-
-  const toggleYouTube = useCallback(() => {
-    setStateValue('showYouTube', !showYouTube);
-  }, [showYouTube, setStateValue]);
 
   const handleYouTubeDownload = useCallback(() => {
     // Abrir o vídeo no YouTube em nova aba
@@ -164,30 +198,29 @@ const CameraCard = ({
   // Atualização automática da imagem (apenas para imagens, não vídeos)
   useEffect(() => {
     // Se é um vídeo do YouTube, não atualizar automaticamente
-    if (isYouTubeLink(camera.link) || camera.youtube_link) {
+    if (isYouTubeLink(camera.link) || camera.youtube_link || isPaused) {
       return;
     }
 
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Não atualiza até a primeira carga completar
+    if (!hasLoadedOnce) {
+      return;
+    }
 
-    const updateImage = () => {
-      if (retryCount >= maxRetries) {
-        console.warn(`Máximo de tentativas atingido para câmera: ${camera.name}`);
-        return;
-      }
-
-      try {
-        const newUrl = updateUrlWithTimestamp();
-        setStateValue('currentImageUrl', newUrl);
-        retryCount = 0; // Reset retry count on successful update
-      } catch (error) {
-        console.error(`Erro ao atualizar imagem da câmera ${camera.name}:`, error);
-        retryCount++;
-      }
-    };
-
-    const interval = setInterval(updateImage, 5000); // Aumentado para 5 segundos
+    const interval = setInterval(() => {
+      setStateValue('retryCount', 0);
+      setStateValue('prevImageUrl', currentImageUrl);
+      setStateValue('isTransitioning', true);
+      const baseUrl = getBaseUrl(camera.link);
+      const d = new Date();
+      const newImageUrl = `${baseUrl}?t=${d.getTime()}`;
+      setStateValue('currentImageUrl', newImageUrl);
+      
+      // Reset transition state after animation completes
+      setTimeout(() => {
+        setStateValue('isTransitioning', false);
+      }, 1000);
+    }, 6000); // 6 segundos como no projeto Cameras
 
     return () => {
       clearInterval(interval);
@@ -195,7 +228,7 @@ const CameraCard = ({
         clearTimeout(updateTimeoutRef.current);
       }
     };
-  }, [setStateValue, updateUrlWithTimestamp, camera.link, camera.youtube_link, isYouTubeLink, camera.name]);
+  }, [camera.link, currentImageUrl, isPaused, hasLoadedOnce, isYouTubeLink, camera.youtube_link, setStateValue, getBaseUrl]);
 
   // Atualizar estado quando expanded prop muda
   useEffect(() => {
@@ -261,7 +294,7 @@ const CameraCard = ({
   }
 
   return (
-    <div className={cardClass}>
+    <div ref={cardRef} className={cardClass}>
       {/* Header do card */}
       <div className="camera-card-header">
         <div className="camera-card-title">
@@ -272,58 +305,6 @@ const CameraCard = ({
         </div>
         
         <div className="camera-card-controls">
-          {/* Botão para alternar entre imagem e vídeo do YouTube */}
-          {(camera.youtube_link || isYouTubeLink(camera.link)) && (
-            <button
-              onClick={toggleYouTube}
-              className="control-btn youtube-btn"
-              title="Alternar para vídeo do YouTube"
-            >
-              <FaYoutube className="icon" />
-            </button>
-          )}
-          
-          <button
-            onClick={handleRefresh}
-            className="control-btn"
-            title="Atualizar imagem"
-            disabled={isLoading}
-          >
-            <FaSync className={`icon ${isLoading ? 'spinning' : ''}`} />
-          </button>
-          
-          <button
-            onClick={toggleNightVision}
-            className={`control-btn ${isNightVision ? 'active' : ''}`}
-            title={isNightVision ? "Desativar visão noturna" : "Ativar visão noturna"}
-          >
-            <FaMoon className="icon" />
-          </button>
-          
-          <button
-            onClick={handleDownload}
-            className="control-btn"
-            title="Baixar imagem"
-          >
-            <FaDownload className="icon" />
-          </button>
-          
-          <button
-            onClick={onSettings}
-            className="control-btn"
-            title="Configurações"
-          >
-            <FaCog className="icon" />
-          </button>
-          
-          <button
-            onClick={toggleExpanded}
-            className="control-btn"
-            title={isExpanded ? "Colapsar" : "Expandir"}
-          >
-            <FaExpand className="icon" />
-          </button>
-          
           <button
             onClick={onClose}
             className="control-btn close-btn"
@@ -354,24 +335,43 @@ const CameraCard = ({
           </div>
         )}
         
+        {/* Imagem anterior para crossfade */}
+        {prevImageUrl && prevImageUrl !== currentImageUrl && (
+          <img
+            src={prevImageUrl}
+            alt=""
+            className={`camera-card-image ${
+              isTransitioning ? 'opacity-0' : 'opacity-100'
+            } transition-opacity duration-1000 ${isNightVision ? 'night-vision' : ''}`}
+            style={{ zIndex: 1 }}
+          />
+        )}
+        
+        {/* Imagem atual */}
         <img
           ref={imageRef}
           src={currentImageUrl}
           alt={`Câmera ${camera.name}`}
-          className="camera-card-image"
+          className={`camera-card-image ${
+            isTransitioning ? 'opacity-100' : 'opacity-100'
+          } transition-opacity duration-1000 ${isNightVision ? 'night-vision' : ''}`}
+          style={{ zIndex: 2 }}
           onLoad={handleImageLoad}
           onError={handleImageError}
+          loading="lazy"
         />
       </div>
 
-      {/* Footer do card */}
+      {/* Footer minimalista - apenas refresh button */}
       <div className="camera-card-footer">
-        <div className="camera-card-info">
-          <span className="quality-badge">{quality}</span>
-          <span className="update-time">
-            Última atualização: {new Date().toLocaleTimeString()}
-          </span>
-        </div>
+        <button
+          onClick={handleRefresh}
+          className="control-btn-minimal"
+          title="Atualizar imagem"
+          disabled={isLoading}
+        >
+          <FaSync className={`icon ${isLoading ? 'spinning' : ''}`} />
+        </button>
       </div>
 
       {/* Camera Details Section */}

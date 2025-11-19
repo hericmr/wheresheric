@@ -99,24 +99,6 @@ const CameraEditor = () => {
             scale: 0.8,
             anchor: [0.5, 0.5],
           }),
-        }),
-        // Indicador de status
-        new Style({
-          image: new CircleStyle({
-            radius: 3,
-            fill: new Fill({ 
-              color: '#00ff00'
-            }),
-            stroke: new Stroke({ 
-              color: '#ffffff', 
-              width: 1 
-            })
-          }),
-          geometry: function(feature) {
-            const geometry = feature.getGeometry();
-            const coordinates = geometry.getCoordinates();
-            return new Point([coordinates[0] + 10, coordinates[1] + 10]);
-          }
         })
       ];
     };

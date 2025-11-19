@@ -1,19 +1,22 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { FaTimes, FaMoon, FaExpand, FaCompress, FaSync, FaDownload, FaChevronLeft, FaChevronRight, FaList, FaUndo, FaYoutube } from 'react-icons/fa';
-import YouTubeVideo from '../YouTubeVideo';
+import { FaTimes, FaSync, FaChevronLeft, FaChevronRight, FaInfoCircle, FaShare } from 'react-icons/fa';
+import { useUpdate } from '../../context/UpdateContext';
 import "./styles.css";
+
+// URLs de fallback
+const LOADING_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect fill='%23000000' width='800' height='600'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23ffffff' font-family='system-ui' font-size='18'%3ECarregando...%3C/text%3E%3C/svg%3E";
+const ERROR_IMAGE_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='600'%3E%3Crect fill='%23000000' width='800' height='600'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' dy='.3em' fill='%23ef4444' font-family='system-ui' font-size='18'%3EErro ao carregar imagem%3C/text%3E%3C/svg%3E";
 
 function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecificCamera, onReopenAllCameras, activeCameras, currentCameraId, camera }) {
     // Estados
     const [state, setState] = useState({
-        currentImageUrl: imageUrl,
-        isNightVision: false,
-        isLoading: false,
+        currentImageUrl: LOADING_PLACEHOLDER, // Começa com placeholder de loading
+        isLoading: true,
         error: null,
-        isFullscreen: false,
-        showCameraMenu: false,
-        showYouTube: false
+        showDetails: false,
+        hasLoadedOnce: false, // Flag para primeira carga
+        linkCopied: false // Flag para mostrar feedback de link copiado
     });
     
     // Refs
@@ -21,101 +24,90 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
     const updateTimeoutRef = useRef(null);
     const touchStartX = useRef(null);
     const touchEndX = useRef(null);
+    const { setIsPaused } = useUpdate(); // Get pause control from context
     
-    const { currentImageUrl, isNightVision, isLoading, error, isFullscreen, showYouTube } = state;
+    const { currentImageUrl, isLoading, error, showDetails, hasLoadedOnce, linkCopied } = state;
     
-    // Função para verificar se é um link do YouTube
-    const isYouTubeLink = useCallback((url) => {
-        if (!url) return false;
-        return url.includes('youtube.com') || url.includes('youtu.be');
+    // Pause other camera updates when fullscreen opens, resume when it closes
+    useEffect(() => {
+        setIsPaused(true); // Pause all other cameras when fullscreen opens
+        
+        return () => {
+            setIsPaused(false); // Resume updates when fullscreen closes
+        };
+    }, [setIsPaused]);
+    
+    // Função auxiliar para extrair a URL base (sem query parameters)
+    const getBaseUrl = useCallback((url) => {
+        if (!url) return url;
+        return url.split('?')[0];
     }, []);
 
-    // Função para extrair o ID do vídeo do YouTube
-    const getYouTubeVideoId = useCallback((url) => {
-        if (!url) return null;
-        
-        const patterns = [
-            /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]+)/,
-            /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]+)/,
-            /(?:youtu\.be\/)([a-zA-Z0-9_-]+)/
-        ];
-        
-        for (const pattern of patterns) {
-            const match = url.match(pattern);
-            if (match) return match[1];
-        }
-        
-        return null;
-    }, []);
-    
     // Funções auxiliares
     const updateUrlWithTimestamp = useCallback(() => {
-        return `${imageUrl}&t=${new Date().getTime()}`;
-    }, [imageUrl]);
+        const baseUrl = getBaseUrl(imageUrl);
+        return `${baseUrl}?t=${new Date().getTime()}`;
+    }, [imageUrl, getBaseUrl]);
     
     const setStateValue = useCallback((key, value) => {
         setState(prevState => ({ ...prevState, [key]: value }));
     }, []);
 
-    // Função para alternar entre imagem e vídeo do YouTube
-    const toggleYouTube = useCallback(() => {
-        setStateValue('showYouTube', !showYouTube);
-    }, [showYouTube, setStateValue]);
+    const toggleDetails = useCallback(() => {
+        setStateValue('showDetails', !showDetails);
+    }, [showDetails, setStateValue]);
 
-    // Função para fechar câmera atual
-    const handleCloseCurrentCamera = useCallback(() => {
-        if (currentCameraId && onCloseSpecificCamera) {
-            onCloseSpecificCamera(currentCameraId);
+    const handleShare = useCallback(async () => {
+        if (!currentCameraId) return;
+        
+        // Usa a URL atual da página como base
+        const currentUrl = window.location.origin + window.location.pathname.split('/camera/')[0] + `/camera/${currentCameraId}`;
+        
+        // Tenta usar a Web Share API se disponível
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: title || 'Câmera',
+                    text: `Veja esta câmera ao vivo: ${title || 'Câmera'}`,
+                    url: currentUrl
+                });
+            } catch (err) {
+                // Se o usuário cancelar ou houver erro, copia para clipboard
+                if (err.name !== 'AbortError') {
+                    await navigator.clipboard.writeText(currentUrl);
+                    setStateValue('linkCopied', true);
+                    setTimeout(() => setStateValue('linkCopied', false), 2000);
+                }
+            }
+        } else {
+            // Fallback: copia para clipboard
+            try {
+                await navigator.clipboard.writeText(currentUrl);
+                setStateValue('linkCopied', true);
+                setTimeout(() => setStateValue('linkCopied', false), 2000);
+            } catch (err) {
+                console.error('Erro ao copiar link:', err);
+            }
         }
-    }, [currentCameraId, onCloseSpecificCamera]);
-
-    // Função para reabrir todas as câmeras
-    const handleReopenAll = useCallback(() => {
-        if (onReopenAllCameras) {
-            onReopenAllCameras();
-        }
-    }, [onReopenAllCameras]);
-
-    // Função para alternar menu de câmeras
-    const toggleCameraMenu = useCallback(() => {
-        setStateValue('showCameraMenu', !state.showCameraMenu);
-    }, [state.showCameraMenu, setStateValue]);
-
-    const handleYouTubeDownload = useCallback(() => {
-        // Abrir o vídeo no YouTube em nova aba
-        const videoId = getYouTubeVideoId(camera?.youtube_link || imageUrl);
-        if (videoId) {
-            window.open(`https://www.youtube.com/watch?v=${videoId}`, '_blank');
-        }
-    }, [camera?.youtube_link, imageUrl, getYouTubeVideoId]);
-
-    const handleYouTubeRefresh = useCallback(() => {
-        // Recarregar o iframe do YouTube
-        setStateValue('isLoading', true);
-        setTimeout(() => {
-            setStateValue('isLoading', false);
-        }, 1000);
-    }, [setStateValue]);
+    }, [currentCameraId, title, setStateValue]);
     
     // Handlers
-    const toggleFullscreen = useCallback(() => {
-        if (!document.fullscreenElement) {
-            imageRef.current?.parentElement?.requestFullscreen();
-            setStateValue('isFullscreen', true);
-        } else {
-            document.exitFullscreen();
-            setStateValue('isFullscreen', false);
-        }
-    }, [setStateValue]);
-    
     const handleImageLoad = useCallback(() => {
         setStateValue('isLoading', false);
         setStateValue('error', null);
-    }, [setStateValue]);
+        if (!hasLoadedOnce) {
+            setStateValue('hasLoadedOnce', true); // Marca que já carregou
+        }
+    }, [setStateValue, hasLoadedOnce]);
     
-    const handleImageError = useCallback(() => {
+    const handleImageError = useCallback((e) => {
         setStateValue('isLoading', false);
         setStateValue('error', 'Erro ao carregar a imagem');
+        // Previne loop infinito de erros
+        if (e.target) {
+            e.target.onerror = null;
+            e.target.src = ERROR_IMAGE_URL;
+        }
     }, [setStateValue]);
     
     const handleRefresh = useCallback(() => {
@@ -130,27 +122,6 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             setStateValue('isLoading', false);
         }, 1000);
     }, [setStateValue, updateUrlWithTimestamp]);
-    
-    const toggleNightVision = useCallback(() => {
-        setStateValue('isNightVision', !isNightVision);
-    }, [isNightVision, setStateValue]);
-    
-    const handleDownload = useCallback(async () => {
-        try {
-            const response = await fetch(currentImageUrl);
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `camera-${Date.now()}.jpg`;
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            document.body.removeChild(a);
-        } catch (err) {
-            setStateValue('error', 'Erro ao baixar a imagem');
-        }
-    }, [currentImageUrl, setStateValue]);
     
     // Funções de toque para navegação em dispositivos móveis
     const handleTouchStart = useCallback((e) => {
@@ -177,47 +148,37 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
         touchEndX.current = null;
     }, [previous, next]);
     
-    // Efeitos
+    // Efeito para atualizar a imagem periodicamente
     useEffect(() => {
-        const handleFullscreenChange = () => {
-            setStateValue('isFullscreen', !!document.fullscreenElement);
-        };
+        // Primeira carga: carrega a URL inicial
+        setStateValue('hasLoadedOnce', false);
+        setStateValue('isLoading', true);
+        setStateValue('currentImageUrl', updateUrlWithTimestamp());
 
-        document.addEventListener('fullscreenchange', handleFullscreenChange);
-        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
-    }, [setStateValue]);
-    
-    // Efeito para atualizar a imagem periodicamente (apenas para imagens, não vídeos)
-    useEffect(() => {
-        // Se é um vídeo do YouTube, não atualizar automaticamente
-        if (isYouTubeLink(imageUrl) || camera?.youtube_link) {
-            return;
-        }
-
-        let animationFrameId;
-        let lastUpdate = Date.now();
-
-        const updateImage = () => {
-            const now = Date.now();
-            if (now - lastUpdate >= 1050) {
-                setStateValue('currentImageUrl', updateUrlWithTimestamp());
-                lastUpdate = now;
-            }
-            animationFrameId = requestAnimationFrame(updateImage);
-        };
-
-        updateImage();
+        // Configura intervalo de atualização (6 segundos como no projeto Cameras)
+        const intervalId = setInterval(() => {
+            // Verifica se já carregou antes de atualizar
+            setState(prevState => {
+                if (prevState.hasLoadedOnce) {
+                    const d = new Date();
+                    const baseUrl = getBaseUrl(imageUrl);
+                    // Apenas atualiza o timestamp
+                    return {
+                        ...prevState,
+                        currentImageUrl: `${baseUrl}?t=${d.getTime()}`
+                    };
+                }
+                return prevState;
+            });
+        }, 6000);
 
         return () => {
-            cancelAnimationFrame(animationFrameId);
+            clearInterval(intervalId);
             if (updateTimeoutRef.current) {
                 clearTimeout(updateTimeoutRef.current);
             }
         };
-    }, [imageUrl, setStateValue, updateUrlWithTimestamp, camera?.youtube_link, isYouTubeLink]);
-
-    // Verificar se deve mostrar vídeo do YouTube
-    const shouldShowYouTube = (camera?.youtube_link || isYouTubeLink(imageUrl)) && showYouTube;
+    }, [imageUrl, setStateValue, updateUrlWithTimestamp, getBaseUrl]);
     
     // Componentes UI
     const renderNavigationButtons = () => (
@@ -249,84 +210,37 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
     const renderBottomMenu = () => (
         <div className="absolute bottom-0 left-0 right-0 flex justify-center p-1 md:p-2 z-[10000]">
             <div className="bg-black/90 rounded-lg shadow-xl p-1 md:p-2 flex flex-row gap-1 overflow-x-auto max-w-full">
-                {/* Botão para alternar entre imagem e vídeo do YouTube */}
-                {(camera?.youtube_link || isYouTubeLink(imageUrl)) && (
-                    <ActionButton
-                        onClick={toggleYouTube}
-                        title={showYouTube ? "Voltar para imagem" : "Alternar para vídeo do YouTube"}
-                        icon={<FaYoutube className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                        label={showYouTube ? "Imagem" : "Vídeo"}
-                        active={showYouTube}
-                    />
-                )}
-
                 <ActionButton
-                    onClick={showYouTube ? handleYouTubeDownload : handleDownload}
-                    title={showYouTube ? "Abrir no YouTube" : "Baixar imagem"}
-                    icon={<FaDownload className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                    label={showYouTube ? "YouTube" : "Baixar"}
-                />
-
-                <ActionButton
-                    onClick={showYouTube ? handleYouTubeRefresh : handleRefresh}
-                    title={showYouTube ? "Recarregar vídeo" : "Atualizar imagem"}
+                    onClick={handleRefresh}
+                    title="Atualizar imagem"
                     icon={<FaSync className={`text-white text-lg md:text-xl group-hover:text-gray-300 ${isLoading ? 'animate-spin' : ''}`} />}
-                    label={showYouTube ? "Recarregar" : "Atualizar"}
+                    label="Atualizar"
                     disabled={isLoading}
                 />
 
-                <ActionButton
-                    onClick={toggleFullscreen}
-                    title={isFullscreen ? "Sair da tela cheia" : "Tela cheia"}
-                    icon={isFullscreen ? 
-                        <FaCompress className="text-white text-lg md:text-xl group-hover:text-gray-300" /> : 
-                        <FaExpand className="text-white text-lg md:text-xl group-hover:text-gray-300" />
-                    }
-                    label={isFullscreen ? "Sair" : "Cheia"}
-                />
-
-                <ActionButton
-                    onClick={toggleNightVision}
-                    title={isNightVision ? "Desativar visão noturna" : "Ativar visão noturna"}
-                    icon={<FaMoon className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                    label={isNightVision ? "Noite" : "Dia"}
-                    active={isNightVision}
-                />
-
-                {/* Botão para fechar câmera atual - apenas se há múltiplas câmeras */}
-                {activeCameras && activeCameras.length > 1 && (
+                {currentCameraId && (
                     <ActionButton
-                        onClick={handleCloseCurrentCamera}
-                        title="Fechar câmera atual"
-                        icon={<FaTimes className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                        label="Fechar"
+                        onClick={handleShare}
+                        title={linkCopied ? "Link copiado!" : "Compartilhar câmera"}
+                        icon={<FaShare className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
+                        label={linkCopied ? "Copiado!" : "Compartilhar"}
+                        active={linkCopied}
                     />
                 )}
 
-                {/* Botão para menu de câmeras - apenas se há múltiplas câmeras */}
-                {activeCameras && activeCameras.length > 1 && (
-                    <ActionButton
-                        onClick={toggleCameraMenu}
-                        title="Menu de câmeras"
-                        icon={<FaList className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                        label="Câmeras"
-                        active={state.showCameraMenu}
-                    />
-                )}
-
-                {/* Botão para reabrir todas as câmeras */}
                 <ActionButton
-                    onClick={handleReopenAll}
-                    title="Reabrir todas as câmeras fechadas"
-                    icon={<FaUndo className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                    label="Reabrir"
+                    onClick={toggleDetails}
+                    title="Ver informações da câmera"
+                    icon={<FaInfoCircle className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
+                    label="Info"
+                    active={showDetails}
                 />
 
                 <ActionButton
                     onClick={close}
-                    title="Fechar todas as câmeras"
+                    title="Fechar"
                     icon={<FaTimes className="text-white text-lg md:text-xl group-hover:text-gray-300" />}
-                    label="Sair"
+                    label="Fechar"
                 />
             </div>
         </div>
@@ -338,7 +252,7 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             onClick={onClick}
             className={`p-1 md:p-2 rounded-lg bg-gray-900 hover:bg-gray-800 transition-colors duration-200 flex flex-row items-center gap-1 md:gap-2 group
                 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-                ${active ? 'bg-red-600' : ''}`}
+                ${active ? 'bg-gray-800' : ''}`}
             title={title}
             disabled={disabled}
         >
@@ -346,39 +260,6 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             <span className="text-xs text-gray-500 group-hover:text-gray-400">{label}</span>
         </button>
     );
-
-    // Se deve mostrar vídeo do YouTube
-    if (shouldShowYouTube) {
-        return (
-            <div className="fixed inset-0 bg-black bg-opacity-95 flex justify-center items-center z-[9999]">
-                <div 
-                    className="relative w-full h-full flex items-center justify-center"
-                    onTouchStart={handleTouchStart}
-                    onTouchMove={handleTouchMove}
-                    onTouchEnd={handleTouchEnd}
-                >
-                    {renderNavigationButtons()}
-
-                    <YouTubeVideo
-                        youtubeLink={camera?.youtube_link || imageUrl}
-                        title={title || 'Vídeo ao Vivo'}
-                        onClose={close}
-                        onExpand={toggleFullscreen}
-                        expanded={isFullscreen}
-                        onSettings={() => console.log('Settings')}
-                        onDownload={handleYouTubeDownload}
-                        onRefresh={handleYouTubeRefresh}
-                        onNightVision={toggleNightVision}
-                        isNightVision={isNightVision}
-                        isLoading={isLoading}
-                        error={error}
-                    />
-                </div>
-
-                {renderBottomMenu()}
-            </div>
-        );
-    }
     
     return (
         <div className="fixed inset-0 bg-black bg-opacity-95 flex justify-center items-center z-[9999]">
@@ -414,9 +295,10 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
                     ref={imageRef}
                     src={currentImageUrl}
                     alt={title || "Imagem em tela cheia"}
-                    className={`w-full h-full object-contain transition-all duration-300 ${isNightVision ? "night-vision" : ""}`}
+                    className="w-full h-full object-contain transition-all duration-300"
                     onLoad={handleImageLoad}
                     onError={handleImageError}
+                    loading="eager"
                 />
 
                 {/* Indicador de navegação por toque - apenas em dispositivos móveis */}
@@ -439,52 +321,52 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             )}
 
             {renderBottomMenu()}
-
-            {/* Menu de câmeras */}
-            {state.showCameraMenu && activeCameras && activeCameras.length > 1 && (
-                <div className="absolute top-20 left-1/2 transform -translate-x-1/2 bg-black/90 rounded-lg shadow-xl p-3 z-[10001] max-w-sm w-full mx-4">
-                    <div className="text-white text-sm font-medium mb-2 text-center">Câmeras Ativas</div>
-                    <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {activeCameras.map((camera, index) => (
-                            <div 
-                                key={camera.id} 
-                                className={`flex items-center justify-between p-2 rounded-lg transition-colors duration-200 ${
-                                    camera.link === imageUrl 
-                                        ? 'bg-blue-600/50 border border-blue-400' 
-                                        : 'bg-gray-700/50 hover:bg-gray-600/50'
-                                }`}
+            
+            {/* Camera Details Modal */}
+            {showDetails && camera && (
+                <div className="absolute inset-0 bg-black/90 flex items-center justify-center z-[10001] p-4">
+                    <div className="bg-gray-900 rounded-lg shadow-xl p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-white text-xl font-semibold">Informações da Câmera</h2>
+                            <button
+                                onClick={toggleDetails}
+                                className="text-gray-400 hover:text-white transition-colors"
                             >
-                                <div className="flex-1 min-w-0">
-                                    <div className="text-white text-sm font-medium truncate">
-                                        {camera.name}
-                                    </div>
-                                    <div className="text-gray-400 text-xs">
-                                        {index + 1} de {activeCameras.length}
-                                    </div>
+                                <FaTimes />
+                            </button>
+                        </div>
+                        <div className="space-y-3 text-white">
+                            {camera.name && (
+                                <div>
+                                    <span className="text-gray-400">Nome:</span> {camera.name}
                                 </div>
-                                <div className="flex items-center gap-2 ml-2">
-                                    {camera.link === imageUrl && (
-                                        <span className="text-blue-400 text-xs">Atual</span>
-                                    )}
-                                    <button
-                                        onClick={() => onCloseSpecificCamera(camera.id)}
-                                        className="p-1 rounded-full bg-red-600 hover:bg-red-700 transition-colors duration-200"
-                                        title="Fechar esta câmera"
-                                    >
-                                        <FaTimes className="text-white text-xs" />
-                                    </button>
+                            )}
+                            {camera.details?.street && (
+                                <div>
+                                    <span className="text-gray-400">Rua:</span> {camera.details.street}
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="mt-3 pt-2 border-t border-gray-600">
-                        <button
-                            onClick={handleReopenAll}
-                            className="w-full p-2 bg-gray-600 hover:bg-gray-500 text-white text-sm rounded transition-colors duration-200 flex items-center justify-center gap-2"
-                        >
-                            <FaUndo className="text-xs" />
-                            Reabrir Todas as Câmeras
-                        </button>
+                            )}
+                            {camera.details?.neighborhood && (
+                                <div>
+                                    <span className="text-gray-400">Bairro:</span> {camera.details.neighborhood}
+                                </div>
+                            )}
+                            {camera.details?.camera_number && (
+                                <div>
+                                    <span className="text-gray-400">Número:</span> {camera.details.camera_number}
+                                </div>
+                            )}
+                            {camera.details?.status && (
+                                <div>
+                                    <span className="text-gray-400">Status:</span> {camera.details.status}
+                                </div>
+                            )}
+                            {typeof camera.lat === 'number' && typeof camera.lng === 'number' && (
+                                <div>
+                                    <span className="text-gray-400">Coordenadas:</span> {camera.lat.toFixed(6)}, {camera.lng.toFixed(6)}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
             )}
@@ -501,7 +383,7 @@ FullScreenImage.propTypes = {
     onCloseSpecificCamera: PropTypes.func,
     onReopenAllCameras: PropTypes.func,
     activeCameras: PropTypes.array,
-    currentCameraId: PropTypes.number,
+    currentCameraId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
     camera: PropTypes.object
 };
 

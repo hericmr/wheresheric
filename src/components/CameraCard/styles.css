@@ -19,14 +19,14 @@
   min-height: 400px;
 }
 
-/* Header do card */
+/* Header do card - minimalista */
 .camera-card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.75rem 1rem;
-  background: rgba(0, 0, 0, 0.8);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  background: rgba(0, 0, 0, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .camera-card-title {
@@ -36,16 +36,16 @@
 }
 
 .camera-card-title h4 {
-  color: white;
+  color: rgba(255, 255, 255, 0.9);
   margin: 0;
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 500;
 }
 
 .camera-card-status {
-  font-size: 0.75rem;
-  color: #10b981;
-  font-weight: 500;
+  font-size: 0.7rem;
+  color: rgba(16, 185, 129, 0.8);
+  font-weight: 400;
 }
 
 .camera-card-status:contains('Erro') {
@@ -62,9 +62,9 @@
 }
 
 .control-btn {
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
   padding: 0.4rem;
   border-radius: 4px;
   cursor: pointer;
@@ -77,8 +77,9 @@
 }
 
 .control-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .control-btn:disabled {
@@ -92,12 +93,13 @@
 }
 
 .control-btn.close-btn {
-  background: rgba(239, 68, 68, 0.2);
-  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
 }
 
 .control-btn.close-btn:hover {
-  background: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .icon {
@@ -113,24 +115,38 @@
   to { transform: rotate(360deg); }
 }
 
-/* Container da imagem */
+/* Container da imagem - Fullscreen */
 .camera-card-image-container {
   flex: 1;
   position: relative;
   background: #000;
   overflow: hidden;
-  min-height: 200px;
+  min-height: 400px;
+  height: calc(100vh - 200px);
+  width: 100%;
+}
+
+.camera-card-image-container img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .camera-card-image {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
   transition: all 0.3s ease;
 }
 
+.camera-card.expanded .camera-card-image-container {
+  height: calc(100vh - 150px);
+}
+
 .camera-card.expanded .camera-card-image {
-  object-fit: contain;
+  object-fit: cover;
 }
 
 /* Overlays */
@@ -191,31 +207,42 @@
   background: #dc2626;
 }
 
-/* Footer do card */
+/* Footer minimalista */
 .camera-card-footer {
   padding: 0.5rem 1rem;
-  background: rgba(0, 0, 0, 0.8);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.camera-card-info {
+  background: rgba(0, 0, 0, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
   display: flex;
-  justify-content: space-between;
+  justify-content: center;
   align-items: center;
-  font-size: 0.75rem;
 }
 
-.quality-badge {
-  background: rgba(34, 197, 94, 0.2);
-  color: #10b981;
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 500;
-  text-transform: uppercase;
-}
-
-.update-time {
+.control-btn-minimal {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.6);
+  padding: 0.5rem;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  opacity: 0.7;
+}
+
+.control-btn-minimal:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 1;
+}
+
+.control-btn-minimal:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
 /* Visão noturna */

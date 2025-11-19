@@ -30,7 +30,7 @@ const Viewer = () => {
   const [connectionStatus, setConnectionStatus] = useState('Conectando...');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(true);
+  const [panelOpen, setPanelOpen] = useState(false); // Start minimized (closed)
   const [cameras, setCameras] = useState([]); // Câmeras do Supabase
   const [activeCameras, setActiveCameras] = useState([]); // Câmeras ativas no grid
   const [cameraGridVisible, setCameraGridVisible] = useState(false); // Visibilidade do grid
@@ -56,7 +56,7 @@ const Viewer = () => {
     if (availableCameras.length > 0) {
       setActiveCameras(availableCameras);
       setCameraGridVisible(true);
-      setCameraGridPosition('expanded');
+      setCameraGridPosition('fullscreen'); // Go directly to fullscreen, skip intermediate stage
       console.log('Activated cameras from map click:', availableCameras.map(c => c.name));
     } else {
       console.log('All clicked cameras are closed by user');
@@ -163,7 +163,7 @@ const Viewer = () => {
       ],
       view: new View({
         center: fromLonLat([-43.2096, -22.9035]), // Centro padrão (Rio de Janeiro)
-        zoom: 18,
+        zoom: 15, // Reduced zoom to show wider area
       }),
     });
     // Força o updateSize após um pequeno delay para garantir renderização
@@ -437,7 +437,7 @@ const Viewer = () => {
               {panelOpen ? '⮜' : '⮞'}
             </Button>
             <div ref={mapRef} id="map" className="map-container"></div>
-            {mapObject.current && <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} />}
+            {mapObject.current && <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />}
           </Col>
           {panelOpen && (
             <Col xs={12} md={3} className="info-col order-1 order-md-2 d-none d-md-block">

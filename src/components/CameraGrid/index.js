@@ -141,7 +141,7 @@ const CameraGrid = ({
         <FullScreenManager
           cameras={cameras}
           visible={true}
-          onClose={() => handlePositionChange('expanded')}
+          onClose={onCloseAll}
           onCloseSpecificCamera={onCloseCamera}
           onReopenAllCameras={onReopenAll}
         />

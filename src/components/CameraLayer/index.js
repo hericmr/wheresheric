@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { fromLonLat } from 'ol/proj';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
@@ -9,7 +9,7 @@ import Icon from 'ol/style/Icon';
 import { Fill, Stroke, Circle as CircleStyle } from 'ol/style';
 import GeoJSON from 'ol/format/GeoJSON';
 
-const CameraLayer = ({ map, cameras, onCameraClick }) => {
+const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
   const cameraSourceRef = useRef(new VectorSource());
   const coverageSourceRef = useRef(new VectorSource());
   const vectorLayerRef = useRef(null);
@@ -79,25 +79,71 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
     return dataUrl;
   }, []);
 
+  // Exclamation mark icon style for alert
+  const exclamationIconStyle = useMemo(() => {
+    const svgString = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 2L2 22h20L12 2z"></path>
+      <line x1="12" y1="10" x2="12" y2="14"></line>
+      <line x1="12" y1="18" x2="12.01" y2="18"></line>
+    </svg>`;
+    const encodedSvg = encodeURIComponent(svgString);
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
+    
+    return dataUrl;
+  }, []);
+
+  // Calculate distance between two lat/lng points in meters (Haversine formula)
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  };
+
+  // Check if camera is within 100m of target location
+  const isCameraCloseToTarget = useCallback((camera) => {
+    if (!targetLocation || !camera.lat || !camera.lng) return false;
+    const distance = calculateDistance(
+      targetLocation.lat,
+      targetLocation.lng,
+      camera.lat,
+      camera.lng
+    );
+    return distance <= 100; // Within 100 meters
+  }, [targetLocation]);
+
   // Atualiza features das câmeras (sem clustering)
   useEffect(() => {
     if (!cameraSourceRef.current) return;
     cameraSourceRef.current.clear();
     cameras.forEach(camera => {
       const hasYoutube = camera && camera.youtube_link;
+      const isCloseToTarget = isCameraCloseToTarget(camera);
       const feature = new Feature({
         geometry: new Point(fromLonLat([camera.lng, camera.lat])),
         camera: camera
       });
       
-      // Style for individual camera (no clustering)
-      feature.setStyle([
+      // Determine background color: red if close to target, otherwise normal colors
+      let backgroundColor = '#4ecdc4'; // Default teal
+      if (isCloseToTarget) {
+        backgroundColor = '#ff0000'; // Red for alert
+      } else if (hasYoutube) {
+        backgroundColor = '#ff6b6b'; // Red-pink for YouTube
+      }
+      
+      const styles = [
         // Círculo de fundo
         new Style({
           image: new CircleStyle({
             radius: 18,
             fill: new Fill({ 
-              color: hasYoutube ? '#ff6b6b' : '#4ecdc4' // Cor diferente para YouTube
+              color: backgroundColor
             }),
             stroke: new Stroke({ 
               color: '#ffffff', 
@@ -112,30 +158,27 @@ const CameraLayer = ({ map, cameras, onCameraClick }) => {
             scale: 0.8,
             anchor: [0.5, 0.5],
           }),
-        }),
-        // Indicador de status (ponto pequeno)
-        new Style({
-          image: new CircleStyle({
-            radius: 3,
-            fill: new Fill({ 
-              color: '#00ff00' // Verde para indicar ativo
-            }),
-            stroke: new Stroke({ 
-              color: '#ffffff', 
-              width: 1 
-            })
-          }),
-          geometry: function(feature) {
-            const geometry = feature.getGeometry();
-            const coordinates = geometry.getCoordinates();
-            return new Point([coordinates[0] + 10, coordinates[1] + 10]);
-          }
         })
-      ]);
+      ];
+
+      // Add exclamation mark alert icon if close to target
+      if (isCloseToTarget) {
+        styles.push(
+          new Style({
+            image: new Icon({
+              src: exclamationIconStyle,
+              scale: 0.7,
+              anchor: [0.9, 0.1], // Top right corner
+            }),
+          })
+        );
+      }
+      
+      feature.setStyle(styles);
       
       cameraSourceRef.current.addFeature(feature);
     });
-  }, [cameras, cameraIconStyle]);
+  }, [cameras, cameraIconStyle, exclamationIconStyle, isCameraCloseToTarget]);
 
   // Adiciona camada de câmeras (sem clustering)
   useEffect(() => {
