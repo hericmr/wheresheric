@@ -215,12 +215,13 @@ const Viewer = () => {
         .single();
       
       if (error) {
-        console.error('Error fetching target location:', error);
+        console.error('[Location Update] Error fetching target location:', error);
         setConnectionStatus('Erro ao buscar localização');
         return null;
       }
       
       if (data) {
+        console.log('[Location Update] Fetching location:', data);
         setLocation(data);
         setLastUpdate(new Date(data.created_at).toLocaleString());
         setConnectionStatus('Conectado');
@@ -228,14 +229,14 @@ const Viewer = () => {
       }
       return null;
     } catch (error) {
-      console.error('Error fetching target location:', error);
+      console.error('[Location Update] Error fetching target location:', error);
       return null;
     }
   }, []);
 
-  // Debounced version of fetchTargetLocation (1 second delay)
+  // Debounced version of fetchTargetLocation (300ms delay - reduzido para atualizações mais rápidas)
   const debouncedFetchLocation = useMemo(
-    () => debounce(fetchTargetLocation, 1000),
+    () => debounce(fetchTargetLocation, 300),
     [fetchTargetLocation]
   );
 
@@ -293,21 +294,37 @@ const Viewer = () => {
     // Busca inicial
     fetchTargetLocation();
     
-    // Realtime subscription (prioritário)
+    // Realtime subscription (prioritário) - escuta INSERT e UPDATE
     const subscription = supabase
       .channel('location_updates')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'location_updates' }, (payload) => {
-        setLocation(payload.new);
-        setLastUpdate(new Date(payload.new.created_at).toLocaleString());
-        setConnectionStatus('Atualizado em tempo real');
+      .on('postgres_changes', { 
+        event: '*', // Escuta INSERT, UPDATE e DELETE
+        schema: 'public', 
+        table: 'location_updates' 
+      }, (payload) => {
+        // Atualiza imediatamente quando há mudança no banco
+        if (payload.new) {
+          console.log('[Location Update] Realtime update received:', payload.new);
+          setLocation(payload.new);
+          setLastUpdate(new Date(payload.new.created_at || new Date()).toLocaleString());
+          setConnectionStatus('Atualizado em tempo real');
+        }
       })
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[Location Update] Subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          setConnectionStatus('Conectado (tempo real)');
+        } else if (status === 'CHANNEL_ERROR') {
+          setConnectionStatus('Erro na conexão');
+        }
+      });
     
-    // Atualização periódica como fallback (10 segundos como no vehicle-tracking)
+    // Atualização periódica como fallback (5 segundos - reduzido para atualizações mais frequentes)
     // Isso garante que mesmo se o realtime falhar, ainda temos atualizações
+    // Não usa debounce aqui para garantir atualizações regulares
     locationIntervalRef.current = setInterval(() => {
-      debouncedFetchLocation();
-    }, 10000); // 10 segundos
+      fetchTargetLocation(); // Chama diretamente sem debounce para atualização periódica
+    }, 5000); // 5 segundos - mais frequente
     
     return () => {
       supabase.removeChannel(subscription);
