@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallback } from 'react';
+import { debounce } from 'lodash';
 import { supabase } from '../../supabaseClient';
 import { transformCamerasFromJson } from '../../utils/cameraTransform';
 import 'ol/ol.css';
@@ -17,14 +18,12 @@ import Stroke from 'ol/style/Stroke';
 import Fill from 'ol/style/Fill';
 import GeoJSON from 'ol/format/GeoJSON';
 import { Navbar, Container, Row, Col, Card, Button, Badge, Modal } from 'react-bootstrap';
-import { useNavigate } from 'react-router-dom';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
 import './styles.css';
 
 
 const Viewer = () => {
-  const navigate = useNavigate();
   console.log('Viewer component rendering');
   const [location, setLocation] = useState(null);
   const [connectionStatus, setConnectionStatus] = useState('Conectando...');
@@ -36,12 +35,15 @@ const Viewer = () => {
   const [cameraGridVisible, setCameraGridVisible] = useState(false); // Visibilidade do grid
   const [cameraGridPosition, setCameraGridPosition] = useState('expanded'); // Posição do grid
   const [closedCameras, setClosedCameras] = useState(new Set()); // Câmeras fechadas pelo usuário
+  const [autoOpenDisabled, setAutoOpenDisabled] = useState(false); // Se o usuário fechou manualmente, não abrir automaticamente
 
   const mapRef = useRef();
   const mapObject = useRef(null);
   const markerSource = useRef(new VectorSource());
   const markerFeature = useRef(null);
   const coverageSource = useRef(new VectorSource()); // Source para áreas de cobertura
+  const locationIntervalRef = useRef(null); // Ref for periodic location updates
+  const autoZoomEnabled = useRef(true); // Auto-zoom enabled by default
 
   const handleCloseAboutModal = () => setShowAboutModal(false);
   const handleShowAboutModal = () => setShowAboutModal(true);
@@ -63,14 +65,42 @@ const Viewer = () => {
     }
   }, [closedCameras]);
 
-  // Função para detectar câmeras relevantes sem imposição
+  // Função para calcular distância entre dois pontos em metros (Haversine formula)
+  const calculateDistance = useCallback((lat1, lon1, lat2, lon2) => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in meters
+  }, []);
+
+  // Função para detectar câmeras relevantes - verifica proximidade de 10 metros
   const detectRelevantCameras = useCallback((location, cameras) => {
     return cameras.filter(camera => {
       // Pular câmeras fechadas pelo usuário
       if (closedCameras.has(camera.id)) {
         return false;
       }
-      // Verificar se está dentro da área de cobertura
+      
+      // Verificar proximidade de 10 metros
+      if (camera.lat && camera.lng && location.lat && location.lng) {
+        const distance = calculateDistance(
+          location.lat,
+          location.lng,
+          camera.lat,
+          camera.lng
+        );
+        
+        if (distance <= 10) { // Within 10 meters
+          return true;
+        }
+      }
+      
+      // Verificar se está dentro da área de cobertura (fallback)
       if (camera.coverage_area) {
         try {
           const geoJsonFormat = new GeoJSON();
@@ -86,10 +116,10 @@ const Viewer = () => {
           console.error('Error checking coverage area for camera:', camera.name, error);
         }
       }
-      // Fallback para proximidade por distância foi removido
+      
       return false;
     });
-  }, [closedCameras]);
+  }, [closedCameras, calculateDistance]);
 
   // Função para fechar câmera específica
   const handleCloseCamera = useCallback((cameraId) => {
@@ -109,13 +139,15 @@ const Viewer = () => {
     setActiveCameras([]);
     setCameraGridVisible(false);
     setClosedCameras(new Set());
-    console.log('All cameras closed');
+    setAutoOpenDisabled(true); // Marca que o usuário fechou manualmente
+    console.log('All cameras closed - auto-open disabled');
   }, []);
 
   // Função para reabrir todas as câmeras fechadas
   const handleReopenAllCameras = useCallback(() => {
     setClosedCameras(new Set());
-    console.log('All cameras reopened');
+    setAutoOpenDisabled(false); // Reabilita abertura automática quando usuário reabre
+    console.log('All cameras reopened - auto-open enabled');
   }, []);
 
   // Função para mudar posição do grid
@@ -172,20 +204,71 @@ const Viewer = () => {
     }, 200);
   }, [coverageStyle]); // Add coverageStyle to dependencies
 
-  // Atualiza a posição do marcador e a view quando a localização muda
+  // Função para buscar localização do target (baseada no vehicle-tracking)
+  const fetchTargetLocation = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('location_updates')
+        .select('lat, lng, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+      
+      if (error) {
+        console.error('Error fetching target location:', error);
+        setConnectionStatus('Erro ao buscar localização');
+        return null;
+      }
+      
+      if (data) {
+        setLocation(data);
+        setLastUpdate(new Date(data.created_at).toLocaleString());
+        setConnectionStatus('Conectado');
+        return data;
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching target location:', error);
+      return null;
+    }
+  }, []);
+
+  // Debounced version of fetchTargetLocation (1 second delay)
+  const debouncedFetchLocation = useMemo(
+    () => debounce(fetchTargetLocation, 1000),
+    [fetchTargetLocation]
+  );
+
+  // Atualiza a posição do marcador e a view quando a localização muda (melhorado com auto-zoom suave)
   useEffect(() => {
     if (!location || !mapObject.current) return;
     
     const coords = fromLonLat([location.lng, location.lat]);
-    
-    // Atualiza a view
-    mapObject.current.getView().setCenter(coords);
     
     // Atualiza o marcador
     markerSource.current.clear();
     markerFeature.current = new Feature({ geometry: new Point(coords) });
     markerFeature.current.setStyle(hericIconStyle);
     markerSource.current.addFeature(markerFeature.current);
+    
+    // Auto-zoom suave com animação (baseado no vehicle-tracking)
+    if (autoZoomEnabled.current && mapObject.current) {
+      const view = mapObject.current.getView();
+      const currentCenter = view.getCenter();
+      const currentZoom = view.getZoom();
+      
+      // Só anima se a posição mudou significativamente ou é a primeira carga
+      if (!currentCenter || 
+          Math.abs(currentCenter[0] - coords[0]) > 0.0001 || 
+          Math.abs(currentCenter[1] - coords[1]) > 0.0001) {
+        // Usa animação suave (flyTo equivalente no OpenLayers)
+        view.animate({
+          center: coords,
+          zoom: 16, // Zoom level similar ao vehicle-tracking
+          duration: 1000 // 1 segundo de animação
+        });
+      }
+    }
     
     // Garante que o mapa se ajuste ao novo tamanho
     setTimeout(() => {
@@ -206,24 +289,12 @@ const Viewer = () => {
     };
   }, []);
 
-  // Busca localização inicial e assina updates
+  // Busca localização inicial, assina updates em tempo real E atualização periódica (baseado no vehicle-tracking)
   useEffect(() => {
-    const fetchInitialLocation = async () => {
-      const { data, error } = await supabase
-        .from('location_updates')
-        .select('lat, lng, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
-      if (error) {
-        setConnectionStatus('Erro ao buscar localização inicial');
-      } else if (data) {
-        setLocation(data);
-        setLastUpdate(new Date(data.created_at).toLocaleString());
-        setConnectionStatus('Conectado');
-      }
-    };
-    fetchInitialLocation();
+    // Busca inicial
+    fetchTargetLocation();
+    
+    // Realtime subscription (prioritário)
     const subscription = supabase
       .channel('location_updates')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'location_updates' }, (payload) => {
@@ -232,10 +303,21 @@ const Viewer = () => {
         setConnectionStatus('Atualizado em tempo real');
       })
       .subscribe();
+    
+    // Atualização periódica como fallback (10 segundos como no vehicle-tracking)
+    // Isso garante que mesmo se o realtime falhar, ainda temos atualizações
+    locationIntervalRef.current = setInterval(() => {
+      debouncedFetchLocation();
+    }, 10000); // 10 segundos
+    
     return () => {
       supabase.removeChannel(subscription);
+      if (locationIntervalRef.current) {
+        clearInterval(locationIntervalRef.current);
+      }
+      debouncedFetchLocation.cancel(); // Cancela qualquer debounce pendente
     };
-  }, []);
+  }, [fetchTargetLocation, debouncedFetchLocation]);
 
   // Fetch cameras from cameras_detailed.json AND Supabase (combine both)
   useEffect(() => {
@@ -385,26 +467,28 @@ const Viewer = () => {
     fetchCameras();
   }, []);
 
-  // Proximity logic - Simplificada para usar grid
+  // Proximity logic - Abre automaticamente se target está a menos de 10m de uma câmera
   useEffect(() => {
-    if (location) {
+    if (location && !autoOpenDisabled) { // Só abre automaticamente se não foi fechado manualmente
       const relevantCameras = detectRelevantCameras(location, cameras);
       
       if (relevantCameras.length > 0) {
         setActiveCameras(relevantCameras);
         setCameraGridVisible(true);
+        setCameraGridPosition('fullscreen'); // Abre diretamente em fullscreen
         
         if (relevantCameras.length > 1) {
-          console.log('Showing multiple cameras in coverage area:', relevantCameras.map(c => c.name));
+          console.log('Auto-opening multiple cameras within 10m:', relevantCameras.map(c => c.name));
         } else {
-          console.log('Showing single camera in coverage area:', relevantCameras[0].name);
+          console.log('Auto-opening camera within 10m:', relevantCameras[0].name);
         }
       } else {
-        setActiveCameras([]);
-        setCameraGridVisible(false);
+        // Não fecha automaticamente - deixa o usuário controlar
+        // setActiveCameras([]);
+        // setCameraGridVisible(false);
       }
     }
-  }, [location, cameras, detectRelevantCameras]);
+  }, [location, cameras, detectRelevantCameras, autoOpenDisabled]);
 
   return (
     <div className="viewer-page">
@@ -419,7 +503,6 @@ const Viewer = () => {
               </Badge>
               {lastUpdate && <span className="text-light me-2">Última Atualização: {lastUpdate}</span>}
               <Button variant="outline-light" onClick={handleShowAboutModal} className="me-2">Sobre</Button>
-              <Button variant="outline-light" onClick={() => navigate('/edit-cameras')}>Editar Câmeras</Button>
             </div>
           </Navbar.Collapse>
         </Container>
