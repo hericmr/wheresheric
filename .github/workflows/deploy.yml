@@ -27,10 +27,18 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Clean reference directories from public folder
+        run: |
+          rm -rf public/onde_esta_heric_trans public/vehicle-tracking public/cameras || true
+      
       - name: Build project
         run: npm run build
         env:
           PUBLIC_URL: https://hericmr.github.io/wheresheric
+      
+      - name: Clean reference directories from build output
+        run: |
+          rm -rf build/onde_esta_heric_trans build/vehicle-tracking build/cameras || true
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
