@@ -1,0 +1,71 @@
+{
+  "name": "onde-estao-heric",
+  "version": "1.0.0",
+  "description": "Sistema de geolocalização em tempo real para rastrear a localização do Heric",
+  "private": true,
+  "author": "Heric MR",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hericmr/wheresheric.git"
+  },
+  "keywords": [
+    "geolocalização",
+    "rastreamento",
+    "câmeras",
+    "segurança",
+    "tempo real",
+    "mapa",
+    "OpenLayers",
+    "React",
+    "Supabase"
+  ],
+  "dependencies": {
+    "@supabase/supabase-js": "^2.50.4",
+    "@testing-library/dom": "^10.4.0",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^13.5.0",
+    "bootstrap": "^5.3.7",
+    "lodash": "^4.17.21",
+    "ol": "^10.6.1",
+    "react": "^19.1.0",
+    "react-bootstrap": "^2.10.10",
+    "react-dom": "^19.1.0",
+    "react-icons": "^5.5.0",
+    "react-router-dom": "^6.30.1",
+    "react-scripts": "5.0.1",
+    "web-vitals": "^2.1.4"
+  },
+  "homepage": "https://hericmr.github.io/wheresheric",
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "PUBLIC_URL=https://hericmr.github.io/wheresheric react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d build",
+    "deploy:manual": "./deploy.sh"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "gh-pages": "^6.3.0"
+  }
+}
