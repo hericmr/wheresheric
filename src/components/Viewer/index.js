@@ -14,9 +14,6 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
-import Stroke from 'ol/style/Stroke';
-import Fill from 'ol/style/Fill';
-import GeoJSON from 'ol/format/GeoJSON';
 import { Navbar, Container, Row, Col, Card, Button, Badge, Modal } from 'react-bootstrap';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
@@ -41,7 +38,6 @@ const Viewer = () => {
   const mapObject = useRef(null);
   const markerSource = useRef(new VectorSource());
   const markerFeature = useRef(null);
-  const coverageSource = useRef(new VectorSource()); // Source para áreas de cobertura
   const locationIntervalRef = useRef(null); // Ref for periodic location updates
   const autoZoomEnabled = useRef(true); // Auto-zoom enabled by default
 
@@ -100,23 +96,6 @@ const Viewer = () => {
         }
       }
       
-      // Verificar se está dentro da área de cobertura (fallback)
-      if (camera.coverage_area) {
-        try {
-          const geoJsonFormat = new GeoJSON();
-          const feature = geoJsonFormat.readFeature(camera.coverage_area, {
-            dataProjection: 'EPSG:4326',
-            featureProjection: 'EPSG:3857',
-          });
-          const point = new Point(fromLonLat([location.lng, location.lat]));
-          if (feature.getGeometry().intersectsCoordinate(point.getCoordinates())) {
-            return true;
-          }
-        } catch (error) {
-          console.error('Error checking coverage area for camera:', camera.name, error);
-        }
-      }
-      
       return false;
     });
   }, [closedCameras, calculateDistance]);
@@ -164,34 +143,15 @@ const Viewer = () => {
     }),
   }), []);
 
-  // Style for coverage areas - Melhorado conforme Fase 1.3
-  const coverageStyle = useMemo(() => new Style({
-    stroke: new Stroke({
-      color: 'rgba(255, 0, 0, 0.8)',
-      width: 3,
-    }),
-    fill: new Fill({
-      color: 'rgba(255, 0, 0, 0.2)',
-    }),
-  }), []);
-
   // Inicializa o mapa apenas uma vez, quando o DOM está pronto
   useLayoutEffect(() => {
     if (mapObject.current || !mapRef.current) return;
-    
-    // Criar camada de cobertura separada conforme Fase 1.1
-    const coverageLayer = new VectorLayer({
-      source: coverageSource.current,
-      style: coverageStyle,
-      zIndex: 1, // Garantir que fique acima do mapa base
-    });
     
     mapObject.current = new Map({
       target: mapRef.current,
       layers: [
         new TileLayer({ source: new OSM() }),
         new VectorLayer({ source: markerSource.current }),
-        coverageLayer, // Usar camada separada para cobertura
       ],
       view: new View({
         center: fromLonLat([-43.2096, -22.9035]), // Centro padrão (Rio de Janeiro)
@@ -202,7 +162,7 @@ const Viewer = () => {
     setTimeout(() => {
       mapObject.current && mapObject.current.updateSize();
     }, 200);
-  }, [coverageStyle]); // Add coverageStyle to dependencies
+  }, []);
 
   // Função para buscar localização do target (baseada no vehicle-tracking)
   const fetchTargetLocation = useCallback(async () => {
