@@ -1,27 +1,4 @@
 {
-  "153": {
-      "id": "153",
-      "url": "https://egov.santos.sp.gov.br/santosmapeada/css/img/cameras/cam0451/snap_c1.jpg?",
-      "camera_number": "CAM0451",
-      "original_id": "1371",
-      "latitude": "-23.98468210",
-      "longitude": "-46.30844733",
-      "utm_x": "366892.87",
-      "utm_y": "7346851.48",
-      "street": "Avenida Doutor Samuel Augusto Leão de Moura",
-      "intersection": "",
-      "neighborhood": "Ponta Da Praia",
-      "camera_type": "Fixa Digital HD",
-      "status": "Em Funcionamento",
-      "status_id": "1",
-      "organizational_unit": "",
-      "installation_date": "2015-11-04",
-      "is_active": "true",
-      "is_public": "true",
-      "is_santos_aovivo": "true",
-      "created_at": "2025-11-18 18:18:21.777016+00",
-      "updated_at": "2025-11-18 18:25:25.98603+00"
-  },
   "152": {
       "id": "152",
       "url": "https://egov.santos.sp.gov.br/santosmapeada/css/img/cameras/cam0432/snap_c1.jpg?",
