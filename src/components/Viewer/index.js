@@ -207,29 +207,55 @@ const Viewer = () => {
   // Função para buscar localização do target (baseada no vehicle-tracking)
   const fetchTargetLocation = useCallback(async () => {
     try {
-      const { data, error } = await supabase
+      // Primeiro tenta buscar com todas as colunas (incluindo speed e heading)
+      let query = supabase
         .from('location_updates')
         .select('lat, lng, accuracy, speed, heading, created_at')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+        .limit(1);
+      
+      let { data, error } = await query;
+      
+      // Se der erro por colunas não existirem, tenta sem speed e heading
+      if (error && (error.message?.includes('column') || error.code === '42703')) {
+        console.warn('[Location Update] Speed/heading columns may not exist, trying without them:', error);
+        query = supabase
+          .from('location_updates')
+          .select('lat, lng, accuracy, created_at')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        
+        const result = await query;
+        data = result.data;
+        error = result.error;
+      }
       
       if (error) {
         console.error('[Location Update] Error fetching target location:', error);
-        setConnectionStatus('Erro ao buscar localização');
+        // Não mostra erro se não houver dados ainda (tabela vazia)
+        if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
+          setConnectionStatus('Aguardando dados...');
+        } else {
+          setConnectionStatus(`Erro: ${error.message || 'Erro ao buscar localização'}`);
+        }
         return null;
       }
       
-      if (data) {
-        console.log('[Location Update] Fetching location:', data);
-        setLocation(data);
-        setLastUpdate(new Date(data.created_at).toLocaleString());
+      if (data && data.length > 0) {
+        const locationData = data[0];
+        console.log('[Location Update] Fetching location:', locationData);
+        setLocation(locationData);
+        setLastUpdate(new Date(locationData.created_at || new Date()).toLocaleString());
         setConnectionStatus('Conectado');
-        return data;
+        return locationData;
+      } else {
+        // Não há dados ainda, mas não é um erro
+        setConnectionStatus('Aguardando dados...');
+        return null;
       }
-      return null;
     } catch (error) {
       console.error('[Location Update] Error fetching target location:', error);
+      setConnectionStatus(`Erro: ${error.message || 'Erro ao buscar localização'}`);
       return null;
     }
   }, []);
@@ -324,6 +350,8 @@ const Viewer = () => {
           setConnectionStatus('Conectado (tempo real)');
         } else if (status === 'CHANNEL_ERROR') {
           setConnectionStatus('Erro na conexão');
+        } else if (status === 'TIMED_OUT') {
+          setConnectionStatus('Conexão expirada - tentando novamente...');
         }
       });
     
@@ -559,26 +587,26 @@ const Viewer = () => {
               </Button>
               <Card className="mt-3">
                 <Card.Header>
-                  <strong>📍 Localização em Tempo Real</strong>
+                  <strong> Heric está aqui! </strong>
                 </Card.Header>
                 <Card.Body>
                   {location ? (
                     <div className="location-info-grid">
                       <div className="location-info-item">
                         <span className="info-label">Latitude:</span>
-                        <span className="info-value">{location.lat?.toFixed(6) || 'N/A'}</span>
+                        <span className="info-value">{typeof location.lat === 'number' ? location.lat.toFixed(6) : location.lat || 'N/A'}</span>
                       </div>
                       <div className="location-info-item">
                         <span className="info-label">Longitude:</span>
-                        <span className="info-value">{location.lng?.toFixed(6) || 'N/A'}</span>
+                        <span className="info-value">{typeof location.lng === 'number' ? location.lng.toFixed(6) : location.lng || 'N/A'}</span>
                       </div>
-                      {location.accuracy && (
+                      {location.accuracy && typeof location.accuracy === 'number' && (
                         <div className="location-info-item">
                           <span className="info-label">Precisão:</span>
                           <span className="info-value">{location.accuracy.toFixed(2)}m</span>
                         </div>
                       )}
-                      {location.speed !== null && location.speed !== undefined && (
+                      {location.speed !== null && location.speed !== undefined && typeof location.speed === 'number' && (
                         <div className="location-info-item">
                           <span className="info-label">Velocidade:</span>
                           <span className="info-value speed-value">
@@ -586,7 +614,7 @@ const Viewer = () => {
                           </span>
                         </div>
                       )}
-                      {location.heading !== null && location.heading !== undefined && (
+                      {location.heading !== null && location.heading !== undefined && typeof location.heading === 'number' && (
                         <div className="location-info-item">
                           <span className="info-label">Direção:</span>
                           <span className="info-value">{location.heading.toFixed(0)}°</span>
@@ -600,7 +628,10 @@ const Viewer = () => {
                       )}
                     </div>
                   ) : (
-                    <p>Aguardando dados de localização...</p>
+                    <div className="waiting-message">
+                      <p>📍 Aguardando dados de localização...</p>
+                      <p className="text-muted small">Certifique-se de que o transmissor está ativo e enviando dados.</p>
+                    </div>
                   )}
                 </Card.Body>
               </Card>
