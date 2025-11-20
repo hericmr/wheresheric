@@ -209,7 +209,7 @@ const Viewer = () => {
     try {
       const { data, error } = await supabase
         .from('location_updates')
-        .select('lat, lng, created_at')
+        .select('lat, lng, accuracy, speed, heading, created_at')
         .order('created_at', { ascending: false })
         .limit(1)
         .single();
@@ -305,7 +305,15 @@ const Viewer = () => {
         // Atualiza imediatamente quando há mudança no banco
         if (payload.new) {
           console.log('[Location Update] Realtime update received:', payload.new);
-          setLocation(payload.new);
+          const locationData = {
+            ...payload.new,
+            lat: payload.new.lat,
+            lng: payload.new.lng,
+            accuracy: payload.new.accuracy,
+            speed: payload.new.speed,
+            heading: payload.new.heading
+          };
+          setLocation(locationData);
           setLastUpdate(new Date(payload.new.created_at || new Date()).toLocaleString());
           setConnectionStatus('Atualizado em tempo real');
         }
@@ -319,12 +327,12 @@ const Viewer = () => {
         }
       });
     
-    // Atualização periódica como fallback (5 segundos - reduzido para atualizações mais frequentes)
+    // Atualização periódica como fallback (1 segundo - atualizações segundo a segundo)
     // Isso garante que mesmo se o realtime falhar, ainda temos atualizações
     // Não usa debounce aqui para garantir atualizações regulares
     locationIntervalRef.current = setInterval(() => {
       fetchTargetLocation(); // Chama diretamente sem debounce para atualização periódica
-    }, 5000); // 5 segundos - mais frequente
+    }, 1000); // 1 segundo - atualizações segundo a segundo
     
     return () => {
       supabase.removeChannel(subscription);
@@ -550,13 +558,47 @@ const Viewer = () => {
                 ×
               </Button>
               <Card className="mt-3">
-                <Card.Header>Última Localização</Card.Header>
+                <Card.Header>
+                  <strong>📍 Localização em Tempo Real</strong>
+                </Card.Header>
                 <Card.Body>
                   {location ? (
-                    <>
-                      <p>Latitude: {location.lat}</p>
-                      <p>Longitude: {location.lng}</p>
-                    </>
+                    <div className="location-info-grid">
+                      <div className="location-info-item">
+                        <span className="info-label">Latitude:</span>
+                        <span className="info-value">{location.lat?.toFixed(6) || 'N/A'}</span>
+                      </div>
+                      <div className="location-info-item">
+                        <span className="info-label">Longitude:</span>
+                        <span className="info-value">{location.lng?.toFixed(6) || 'N/A'}</span>
+                      </div>
+                      {location.accuracy && (
+                        <div className="location-info-item">
+                          <span className="info-label">Precisão:</span>
+                          <span className="info-value">{location.accuracy.toFixed(2)}m</span>
+                        </div>
+                      )}
+                      {location.speed !== null && location.speed !== undefined && (
+                        <div className="location-info-item">
+                          <span className="info-label">Velocidade:</span>
+                          <span className="info-value speed-value">
+                            {(location.speed * 3.6).toFixed(1)} km/h
+                          </span>
+                        </div>
+                      )}
+                      {location.heading !== null && location.heading !== undefined && (
+                        <div className="location-info-item">
+                          <span className="info-label">Direção:</span>
+                          <span className="info-value">{location.heading.toFixed(0)}°</span>
+                        </div>
+                      )}
+                      {lastUpdate && (
+                        <div className="location-info-item">
+                          <span className="info-label">Última Atualização:</span>
+                          <span className="info-value">{lastUpdate}</span>
+                        </div>
+                      )}
+                    </div>
                   ) : (
                     <p>Aguardando dados de localização...</p>
                   )}
