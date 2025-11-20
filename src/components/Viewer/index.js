@@ -592,34 +592,42 @@ const Viewer = () => {
                 <Card.Body>
                   {location ? (
                     <div className="location-info-grid">
+                      {/* Latitude - sempre visível */}
                       <div className="location-info-item">
                         <span className="info-label">Latitude:</span>
                         <span className="info-value">{typeof location.lat === 'number' ? location.lat.toFixed(6) : location.lat || 'N/A'}</span>
                       </div>
+                      {/* Longitude - sempre visível */}
                       <div className="location-info-item">
                         <span className="info-label">Longitude:</span>
                         <span className="info-value">{typeof location.lng === 'number' ? location.lng.toFixed(6) : location.lng || 'N/A'}</span>
                       </div>
-                      {location.accuracy && typeof location.accuracy === 'number' && (
-                        <div className="location-info-item">
-                          <span className="info-label">Precisão:</span>
-                          <span className="info-value">{location.accuracy.toFixed(2)}m</span>
-                        </div>
-                      )}
-                      {location.speed !== null && location.speed !== undefined && typeof location.speed === 'number' && (
-                        <div className="location-info-item">
-                          <span className="info-label">Velocidade:</span>
-                          <span className="info-value speed-value">
-                            {(location.speed * 3.6).toFixed(1)} km/h
-                          </span>
-                        </div>
-                      )}
+                      {/* Precisão - sempre visível (como no transmissor) */}
+                      <div className="location-info-item">
+                        <span className="info-label">Precisão:</span>
+                        <span className="info-value">
+                          {location.accuracy && typeof location.accuracy === 'number' 
+                            ? `${location.accuracy.toFixed(2)}m` 
+                            : 'N/A'}
+                        </span>
+                      </div>
+                      {/* Velocidade - sempre visível (como no transmissor) */}
+                      <div className="location-info-item">
+                        <span className="info-label">Velocidade:</span>
+                        <span className="info-value speed-value">
+                          {location.speed !== null && location.speed !== undefined && typeof location.speed === 'number'
+                            ? `${(location.speed * 3.6).toFixed(1)} km/h`
+                            : '0.0 km/h'}
+                        </span>
+                      </div>
+                      {/* Direção - opcional */}
                       {location.heading !== null && location.heading !== undefined && typeof location.heading === 'number' && (
                         <div className="location-info-item">
                           <span className="info-label">Direção:</span>
                           <span className="info-value">{location.heading.toFixed(0)}°</span>
                         </div>
                       )}
+                      {/* Última atualização */}
                       {lastUpdate && (
                         <div className="location-info-item">
                           <span className="info-label">Última Atualização:</span>
