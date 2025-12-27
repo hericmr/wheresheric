@@ -27,7 +27,7 @@ const Viewer = () => {
   const [connectionStatus, setConnectionStatus] = useState('Conectando...');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
-  const [panelOpen, setPanelOpen] = useState(false); // Start minimized (closed)
+  const [panelOpen, setPanelOpen] = useState(true); // Start expanded (open)
   const [cameras, setCameras] = useState([]); // Câmeras do Supabase
   const [activeCameras, setActiveCameras] = useState([]); // Câmeras ativas no grid
   const [cameraGridVisible, setCameraGridVisible] = useState(false); // Visibilidade do grid
@@ -205,7 +205,7 @@ const Viewer = () => {
       // Primeiro tenta buscar com todas as colunas (incluindo speed e heading)
       let query = supabase
         .from('location_updates')
-        .select('lat, lng, accuracy, speed, heading, created_at')
+        .select('lat, lng, accuracy, speed, heading, altitude, altitude_accuracy, created_at')
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -311,40 +311,92 @@ const Viewer = () => {
     [fetchTargetLocation]
   );
 
-  // Atualiza a posição do marcador e a view quando a localização muda (melhorado com auto-zoom suave)
+  // Ref para armazenar a posição atual da animação
+  const currentAnimatedPos = useRef(null);
+  const animationFrameRef = useRef(null);
+
+  // Atualiza a posição do marcador e a view quando a localização muda (com animação suave/interpolação)
   useEffect(() => {
     if (!location || !mapObject.current) return;
 
-    const coords = fromLonLat([location.lng, location.lat]);
+    const targetCoords = fromLonLat([location.lng, location.lat]);
 
-    // Atualiza o marcador
-    markerSource.current.clear();
-    markerFeature.current = new Feature({ geometry: new Point(coords) });
-    markerFeature.current.setStyle(hericIconStyle);
-    markerSource.current.addFeature(markerFeature.current);
+    // Se é a primeira vez, apenas posiciona sem animar
+    if (!currentAnimatedPos.current) {
+      currentAnimatedPos.current = targetCoords;
 
-    // Auto-zoom suave com animação (baseado no vehicle-tracking)
-    if (autoZoomEnabled.current && mapObject.current) {
+      markerSource.current.clear();
+      markerFeature.current = new Feature({ geometry: new Point(targetCoords) });
+      markerFeature.current.setStyle(hericIconStyle);
+      markerSource.current.addFeature(markerFeature.current);
+
+      // Ajusta o mapa inicial
       const view = mapObject.current.getView();
-      const currentCenter = view.getCenter();
+      view.setCenter(targetCoords);
+      view.setZoom(16);
 
-      // Só anima se a posição mudou significativamente ou é a primeira carga
-      if (!currentCenter ||
-        Math.abs(currentCenter[0] - coords[0]) > 0.0001 ||
-        Math.abs(currentCenter[1] - coords[1]) > 0.0001) {
-        // Usa animação suave (flyTo equivalente no OpenLayers)
-        view.animate({
-          center: coords,
-          zoom: 16, // Zoom level similar ao vehicle-tracking
-          duration: 1000 // 1 segundo de animação
-        });
-      }
+      return;
     }
 
-    // Garante que o mapa se ajuste ao novo tamanho
-    setTimeout(() => {
-      mapObject.current && mapObject.current.updateSize();
-    }, 100);
+    // Se já tem posição anterior, inicia a animação de interpolação
+    const startCoords = currentAnimatedPos.current;
+    const startTime = Date.now();
+    const duration = 2000; // 2 segundos para percorrer até o novo ponto (suavidade)
+
+    const animate = () => {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+
+      // Função de Easing (suavização) - Ease Out Quart
+      const ease = 1 - Math.pow(1 - progress, 4);
+
+      // Interpolação Linear (Lerp) das coordenadas
+      const currentX = startCoords[0] + (targetCoords[0] - startCoords[0]) * ease;
+      const currentY = startCoords[1] + (targetCoords[1] - startCoords[1]) * ease;
+      const currentCoords = [currentX, currentY];
+
+      // Atualiza a referência de posição atual
+      currentAnimatedPos.current = currentCoords;
+
+      // Atualiza a geometria do marcador
+      if (markerFeature.current) {
+        markerFeature.current.setGeometry(new Point(currentCoords));
+
+        // Opcional: Rotacionar o ícone se houver heading
+        if (location.heading) {
+          const style = markerFeature.current.getStyle();
+          // OpenLayers rotation é em radianos e sentido horário. Heading geralmente é graus.
+          // Precisamos converter.
+          const rotation = (location.heading * Math.PI) / 180;
+          style.getImage().setRotation(rotation);
+        }
+      }
+
+      // Atualiza o centro do mapa para seguir o marcador (suavemente)
+      if (autoZoomEnabled.current && mapObject.current) {
+        mapObject.current.getView().setCenter(currentCoords);
+      }
+
+      // Continua a animação se não acabou
+      if (progress < 1) {
+        animationFrameRef.current = requestAnimationFrame(animate);
+      }
+    };
+
+    // Cancela animação anterior se houver
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    // Inicia nova animação
+    animationFrameRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+    };
   }, [location, hericIconStyle]);
 
   // Atualiza o tamanho do mapa ao redimensionar a janela
@@ -405,7 +457,9 @@ const Viewer = () => {
             lng: payload.new.lng,
             accuracy: payload.new.accuracy,
             speed: payload.new.speed,
-            heading: payload.new.heading
+            heading: payload.new.heading,
+            altitude: payload.new.altitude,
+            altitude_accuracy: payload.new.altitude_accuracy
           };
           setLocation(locationData);
           setLastUpdate(new Date(payload.new.created_at || new Date()).toLocaleString());
@@ -715,6 +769,17 @@ const Viewer = () => {
                         <div className="location-info-item">
                           <span className="info-label">Direção:</span>
                           <span className="info-value">{location.heading.toFixed(0)}°</span>
+                        </div>
+                      )}
+
+                      {/* Altitude - opcional */}
+                      {location.altitude !== null && location.altitude !== undefined && typeof location.altitude === 'number' && (
+                        <div className="location-info-item">
+                          <span className="info-label">Altitude:</span>
+                          <span className="info-value">
+                            {location.altitude.toFixed(1)}m
+                            {location.altitude_accuracy ? ` (±${location.altitude_accuracy.toFixed(1)}m)` : ''}
+                          </span>
                         </div>
                       )}
 
