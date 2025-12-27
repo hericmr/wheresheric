@@ -14,7 +14,7 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
-import { Navbar, Container, Row, Col, Card, Button, Badge, Modal, ButtonGroup } from 'react-bootstrap';
+import { Navbar, Container, Row, Col, Card, Button, Badge, Modal, ButtonGroup, Form, InputGroup } from 'react-bootstrap';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
 import TrackLayer from '../TrackLayer';
@@ -24,6 +24,7 @@ import './styles.css';
 const Viewer = () => {
   console.log('Viewer component rendering');
   const [location, setLocation] = useState(null);
+  const [showCameras, setShowCameras] = useState(true); // Toggle visibility of cameras
   const [connectionStatus, setConnectionStatus] = useState('Conectando...');
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -39,6 +40,12 @@ const Viewer = () => {
   // Track recording state
   const [isRecording, setIsRecording] = useState(false);
   const [trackCoordinates, setTrackCoordinates] = useState([]);
+
+  // History state
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyHours, setHistoryHours] = useState('24');
+  const [historyCoordinates, setHistoryCoordinates] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const mapRef = useRef();
   const mapObject = useRef(null);
@@ -61,7 +68,47 @@ const Viewer = () => {
     setTrackCoordinates([]);
   };
 
-  // Função para ativar câmeras via clique no mapa
+
+
+  // History function
+  const handleShowHistoryModal = () => setShowHistoryModal(true);
+  const handleCloseHistoryModal = () => setShowHistoryModal(false);
+
+  const fetchHistory = useCallback(async () => {
+    if (!historyHours || isNaN(historyHours)) return;
+
+    setLoadingHistory(true);
+    setHistoryCoordinates([]);
+    try {
+      const hours = parseInt(historyHours);
+      // Calculate timestamp X hours ago
+      const startTime = new Date(Date.now() - hours * 60 * 60 * 1000).toISOString();
+
+      console.log(`[History] Fetching data since ${startTime} (${hours} hours ago)`);
+
+      const { data, error } = await supabase
+        .from('location_updates')
+        .select('lat, lng, created_at')
+        .gte('created_at', startTime)
+        .order('created_at', { ascending: true }); // Ascending for correct line drawing
+
+      if (error) throw error;
+
+      if (data && data.length > 0) {
+        console.log(`[History] Found ${data.length} points`);
+        const coords = data.map(pt => [pt.lng, pt.lat]); // [lng, lat] for OpenLayers
+        setHistoryCoordinates(coords);
+        handleCloseHistoryModal();
+      } else {
+        alert('Nenhum dado encontrado para este período.');
+      }
+    } catch (err) {
+      console.error('[History] Error:', err);
+      alert('Erro ao buscar histórico: ' + err.message);
+    } finally {
+      setLoadingHistory(false);
+    }
+  }, [historyHours]);
   const handleCameraClick = useCallback((clickedCameras) => {
     console.log('Camera clicked on map:', clickedCameras);
 
@@ -146,6 +193,32 @@ const Viewer = () => {
     console.log('All cameras reopened - auto-open enabled');
   }, []);
 
+  // Home detection logic
+  const isAtHome = useCallback((loc) => {
+    if (!loc) return false;
+
+    // Target: Lat: -23.984520, Lng: -46.307976, Alt: 5.9m
+    const targetLat = -23.984520;
+    const targetLng = -46.307976;
+    const targetAlt = 5.9;
+
+    // Tolerances
+    const coordTolerance = 0.0005; // ~50 meters
+    const altTolerance = 10.0; // +/- 10 meters (GPS altitude is noisy)
+
+    const latDiff = Math.abs(loc.lat - targetLat);
+    const lngDiff = Math.abs(loc.lng - targetLng);
+
+    // Check Altitude if available (optional but requested)
+    let altMatch = true;
+    if (loc.altitude !== null && loc.altitude !== undefined) {
+      const altDiff = Math.abs(loc.altitude - targetAlt);
+      altMatch = altDiff <= altTolerance;
+    }
+
+    return latDiff <= coordTolerance && lngDiff <= coordTolerance && altMatch;
+  }, []);
+
   // Função para mudar posição do grid
   const handleGridPositionChange = useCallback((newPosition) => {
     setCameraGridPosition(newPosition);
@@ -168,7 +241,10 @@ const Viewer = () => {
       target: mapRef.current,
       layers: [
         new TileLayer({ source: new OSM() }),
-        new VectorLayer({ source: markerSource.current }),
+        new VectorLayer({
+          source: markerSource.current,
+          zIndex: 100 // Ensure target is always on top
+        }),
       ],
       view: new View({
         center: fromLonLat([-43.2096, -22.9035]), // Centro padrão (Rio de Janeiro)
@@ -687,6 +763,22 @@ const Viewer = () => {
                     🗑
                   </Button>
                 )}
+                <Button
+                  variant="outline-info"
+                  onClick={handleShowHistoryModal}
+                  size="sm"
+                  title="Ver Histórico"
+                >
+                  Histórico
+                </Button>
+                <Button
+                  variant={showCameras ? "outline-primary" : "outline-secondary"}
+                  onClick={() => setShowCameras(!showCameras)}
+                  size="sm"
+                  title={showCameras ? "Ocultar Câmeras" : "Mostrar Câmeras"}
+                >
+                  {showCameras ? "Ocultar Câmeras" : "Mostrar Câmeras"}
+                </Button>
               </ButtonGroup>
 
               <Badge bg={connectionStatus.includes('Erro') ? 'danger' : 'success'} className="me-2">
@@ -713,8 +805,25 @@ const Viewer = () => {
             <div ref={mapRef} id="map" className="map-container"></div>
             {mapObject.current && (
               <>
-                <TrackLayer map={mapObject.current} trackCoordinates={trackCoordinates} />
-                <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />
+                {/* Recording Layer - Dashed Purple Line */}
+                <TrackLayer
+                  map={mapObject.current}
+                  trackCoordinates={trackCoordinates}
+                  color="rgba(148, 0, 211, 0.7)"
+                  width={4}
+                  lineDash={[10, 10]}
+                />
+                {/* History Layer - Dashed Orange Line */}
+                <TrackLayer
+                  map={mapObject.current}
+                  trackCoordinates={historyCoordinates}
+                  color="rgba(255, 140, 0, 0.7)"
+                  width={3}
+                  lineDash={[10, 10]}
+                />
+                {showCameras && (
+                  <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />
+                )}
               </>
             )}
           </Col>
@@ -730,8 +839,10 @@ const Viewer = () => {
                 ×
               </Button>
               <Card className="mt-3">
-                <Card.Header>
-                  <strong> Heric está aqui! </strong>
+                <Card.Header className={location && isAtHome(location) ? "bg-success text-white" : ""}>
+                  <strong>
+                    {location && isAtHome(location) ? "🏠 Heric está em casa!" : "Heric está aqui!"}
+                  </strong>
                 </Card.Header>
                 <Card.Body>
                   {location ? (
@@ -811,6 +922,41 @@ const Viewer = () => {
           )}
         </Row>
       </Container>
+      {/* History Modal */}
+      <Modal show={showHistoryModal} onHide={handleCloseHistoryModal} centered>
+        <Modal.Header closeButton>
+          <Modal.Title>Ver Histórico de Rastreamento</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Mostrar dados das últimas:</Form.Label>
+              <InputGroup>
+                <Form.Control
+                  type="number"
+                  value={historyHours}
+                  onChange={(e) => setHistoryHours(e.target.value)}
+                  min="1"
+                  max="168"
+                />
+                <InputGroup.Text>horas</InputGroup.Text>
+              </InputGroup>
+              <Form.Text className="text-muted">
+                Isso buscará os pontos armazenados no banco de dados.
+              </Form.Text>
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={handleCloseHistoryModal}>
+            Cancelar
+          </Button>
+          <Button variant="primary" onClick={fetchHistory} disabled={loadingHistory}>
+            {loadingHistory ? 'Buscando...' : 'Carregar Histórico'}
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
       <Modal show={showAboutModal} onHide={handleCloseAboutModal}>
         <Modal.Header closeButton>
           <Modal.Title>Sobre o Projeto</Modal.Title>

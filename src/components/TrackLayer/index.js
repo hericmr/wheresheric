@@ -7,7 +7,7 @@ import LineString from 'ol/geom/LineString';
 import Style from 'ol/style/Style';
 import Stroke from 'ol/style/Stroke';
 
-const TrackLayer = ({ map, trackCoordinates = [] }) => {
+const TrackLayer = ({ map, trackCoordinates = [], color = 'rgba(0, 102, 255, 0.7)', width = 4, lineDash = null }) => {
     const sourceRef = useRef(new VectorSource());
     const layerRef = useRef(null);
 
@@ -19,8 +19,9 @@ const TrackLayer = ({ map, trackCoordinates = [] }) => {
             source: sourceRef.current,
             style: new Style({
                 stroke: new Stroke({
-                    color: 'rgba(0, 102, 255, 0.7)', // Blue track
-                    width: 4,
+                    color: color,
+                    width: width,
+                    lineDash: lineDash,
                     lineCap: 'round',
                     lineJoin: 'round'
                 })
