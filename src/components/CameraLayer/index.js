@@ -7,65 +7,20 @@ import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
 import { Fill, Stroke, Circle as CircleStyle } from 'ol/style';
-import GeoJSON from 'ol/format/GeoJSON';
 
 const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
   const cameraSourceRef = useRef(new VectorSource());
-  const coverageSourceRef = useRef(new VectorSource());
   const vectorLayerRef = useRef(null);
-  const coverageLayerRef = useRef(null);
+  const targetLocationRef = useRef(targetLocation);
 
-  // Style for coverage areas
-  const coverageStyle = useMemo(() => new Style({
-    stroke: new Stroke({
-      color: 'rgba(255, 0, 0, 0.8)',
-      width: 3,
-    }),
-    fill: new Fill({
-      color: 'rgba(255, 0, 0, 0.2)',
-    }),
-  }), []);
-
-  // Renderizar polígonos de cobertura conforme Fase 3.1
+  // Keep targetLocationRef in sync with prop for use in style function
   useEffect(() => {
-    if (!map) return;
-
-    coverageLayerRef.current = new VectorLayer({
-      source: coverageSourceRef.current,
-      style: coverageStyle,
-      zIndex: 1,
-    });
-
-    map.addLayer(coverageLayerRef.current);
-
-    return () => {
-      if (coverageLayerRef.current) {
-        map.removeLayer(coverageLayerRef.current);
-      }
-    };
-  }, [map, coverageStyle]);
-
-  // Carregar polígonos das câmeras conforme Fase 3.1
-  useEffect(() => {
-    if (!coverageSourceRef.current) return;
-
-    coverageSourceRef.current.clear();
-    const geoJsonFormat = new GeoJSON();
-    
-    cameras.forEach(camera => {
-      if (camera.coverage_area) {
-        try {
-          const feature = geoJsonFormat.readFeature(camera.coverage_area, {
-            dataProjection: 'EPSG:4326',
-            featureProjection: 'EPSG:3857',
-          });
-          coverageSourceRef.current.addFeature(feature);
-        } catch (error) {
-          // Silenciar erro de área de cobertura inválida
-        }
-      }
-    });
-  }, [cameras]);
+    targetLocationRef.current = targetLocation;
+    // Force layer to re-evaluate styles when location changes
+    if (vectorLayerRef.current) {
+      vectorLayerRef.current.changed();
+    }
+  }, [targetLocation]);
 
   // Camera icon style - memoized for performance
   const cameraIconStyle = useMemo(() => {
@@ -75,7 +30,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     </svg>`;
     const encodedSvg = encodeURIComponent(svgString);
     const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
-    
+
     return dataUrl;
   }, []);
 
@@ -88,7 +43,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     </svg>`;
     const encodedSvg = encodeURIComponent(svgString);
     const dataUrl = `data:image/svg+xml;charset=utf-8,${encodedSvg}`;
-    
+
     return dataUrl;
   }, []);
 
@@ -97,7 +52,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     const R = 6371000; // Earth's radius in meters
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -105,87 +60,96 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     return R * c; // Distance in meters
   };
 
-  // Check if camera is within 100m of target location
-  const isCameraCloseToTarget = useCallback((camera) => {
-    if (!targetLocation || !camera.lat || !camera.lng) return false;
-    const distance = calculateDistance(
-      targetLocation.lat,
-      targetLocation.lng,
-      camera.lat,
-      camera.lng
-    );
-    return distance <= 100; // Within 100 meters
-  }, [targetLocation]);
+  // Dynamic Style Function
+  const styleFunction = useCallback((feature) => {
+    const camera = feature.get('camera');
+    if (!camera) return []; // Should not happen
 
-  // Atualiza features das câmeras (sem clustering)
+    const currentTarget = targetLocationRef.current;
+    let isCloseToTarget = false;
+
+    if (currentTarget && camera.lat && camera.lng) {
+      const distance = calculateDistance(
+        currentTarget.lat,
+        currentTarget.lng,
+        camera.lat,
+        camera.lng
+      );
+      isCloseToTarget = distance <= 100; // Within 100 meters
+    }
+
+    const hasYoutube = camera.youtube_link;
+
+    // Determine background color
+    let backgroundColor = '#4ecdc4'; // Default teal
+    if (isCloseToTarget) {
+      backgroundColor = '#ff0000'; // Red for alert
+    } else if (hasYoutube) {
+      backgroundColor = '#ff6b6b'; // Red-pink for YouTube
+    }
+
+    const styles = [
+      // Círculo de fundo
+      new Style({
+        image: new CircleStyle({
+          radius: 18,
+          fill: new Fill({
+            color: backgroundColor
+          }),
+          stroke: new Stroke({
+            color: '#ffffff',
+            width: 2
+          })
+        })
+      }),
+      // Ícone da câmera
+      new Style({
+        image: new Icon({
+          src: cameraIconStyle,
+          scale: 0.8,
+          anchor: [0.5, 0.5],
+        }),
+      })
+    ];
+
+    // Add exclamation mark alert icon if close to target
+    if (isCloseToTarget) {
+      styles.push(
+        new Style({
+          image: new Icon({
+            src: exclamationIconStyle,
+            scale: 0.7,
+            anchor: [0.9, 0.1], // Top right corner
+          }),
+        })
+      );
+    }
+
+    return styles;
+  }, [cameraIconStyle, exclamationIconStyle]); // calculateDistance is defined outside or can be moved inside if stable. It is defined outside component now no, it is inside but not memoized. Let's rely on the function definition inside component.
+
+  // Atualiza features das câmeras (apenas quando a lista de câmeras muda)
   useEffect(() => {
     if (!cameraSourceRef.current) return;
     cameraSourceRef.current.clear();
+
     cameras.forEach(camera => {
-      const hasYoutube = camera && camera.youtube_link;
-      const isCloseToTarget = isCameraCloseToTarget(camera);
       const feature = new Feature({
         geometry: new Point(fromLonLat([camera.lng, camera.lat])),
         camera: camera
       });
-      
-      // Determine background color: red if close to target, otherwise normal colors
-      let backgroundColor = '#4ecdc4'; // Default teal
-      if (isCloseToTarget) {
-        backgroundColor = '#ff0000'; // Red for alert
-      } else if (hasYoutube) {
-        backgroundColor = '#ff6b6b'; // Red-pink for YouTube
-      }
-      
-      const styles = [
-        // Círculo de fundo
-        new Style({
-          image: new CircleStyle({
-            radius: 18,
-            fill: new Fill({ 
-              color: backgroundColor
-            }),
-            stroke: new Stroke({ 
-              color: '#ffffff', 
-              width: 2 
-            })
-          })
-        }),
-        // Ícone da câmera
-        new Style({
-          image: new Icon({
-            src: cameraIconStyle,
-            scale: 0.8,
-            anchor: [0.5, 0.5],
-          }),
-        })
-      ];
-
-      // Add exclamation mark alert icon if close to target
-      if (isCloseToTarget) {
-        styles.push(
-          new Style({
-            image: new Icon({
-              src: exclamationIconStyle,
-              scale: 0.7,
-              anchor: [0.9, 0.1], // Top right corner
-            }),
-          })
-        );
-      }
-      
-      feature.setStyle(styles);
-      
+      // Do NOT set style here. Let the layer use the styleFunction.
       cameraSourceRef.current.addFeature(feature);
     });
-  }, [cameras, cameraIconStyle, exclamationIconStyle, isCameraCloseToTarget]);
+  }, [cameras]);
 
-  // Adiciona camada de câmeras (sem clustering)
+  // Adiciona camada de câmeras
   useEffect(() => {
     if (!map || !cameraSourceRef.current) return;
 
     vectorLayerRef.current = new VectorLayer({
       source: cameraSourceRef.current,
+      style: styleFunction, // Use function for dynamic styling
       zIndex: 2,
     });
 
@@ -199,7 +163,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
       if (feature && onCameraClick) {
         const camera = feature.get('camera');
         if (camera) {
-          onCameraClick([camera]); // Pass as array for consistency
+          onCameraClick([camera]);
         }
       }
     };
@@ -211,7 +175,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
       }
       map.un('click', handleClick);
     };
-  }, [map, onCameraClick]);
+  }, [map, onCameraClick, styleFunction]);
 
   return null;
 };

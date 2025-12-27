@@ -14,9 +14,10 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
-import { Navbar, Container, Row, Col, Card, Button, Badge, Modal } from 'react-bootstrap';
+import { Navbar, Container, Row, Col, Card, Button, Badge, Modal, ButtonGroup } from 'react-bootstrap';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
+import TrackLayer from '../TrackLayer';
 import './styles.css';
 
 
@@ -33,6 +34,11 @@ const Viewer = () => {
   const [cameraGridPosition, setCameraGridPosition] = useState('expanded'); // Posição do grid
   const [closedCameras, setClosedCameras] = useState(new Set()); // Câmeras fechadas pelo usuário
   const [autoOpenDisabled, setAutoOpenDisabled] = useState(false); // Se o usuário fechou manualmente, não abrir automaticamente
+  const [isDemoMode, setIsDemoMode] = useState(false); // Fallback para modo demo se a DB falhar
+
+  // Track recording state
+  const [isRecording, setIsRecording] = useState(false);
+  const [trackCoordinates, setTrackCoordinates] = useState([]);
 
   const mapRef = useRef();
   const mapObject = useRef(null);
@@ -40,17 +46,28 @@ const Viewer = () => {
   const markerFeature = useRef(null);
   const locationIntervalRef = useRef(null); // Ref for periodic location updates
   const autoZoomEnabled = useRef(true); // Auto-zoom enabled by default
+  const demoIntervalRef = useRef(null); // Intervalo para modo demo
 
   const handleCloseAboutModal = () => setShowAboutModal(false);
   const handleShowAboutModal = () => setShowAboutModal(true);
 
+  // Toggle recording
+  const toggleRecording = () => {
+    setIsRecording(!isRecording);
+  };
+
+  // Clear track
+  const clearTrack = () => {
+    setTrackCoordinates([]);
+  };
+
   // Função para ativar câmeras via clique no mapa
   const handleCameraClick = useCallback((clickedCameras) => {
     console.log('Camera clicked on map:', clickedCameras);
-    
+
     // Filtrar câmeras que não estão fechadas pelo usuário
     const availableCameras = clickedCameras.filter(camera => !closedCameras.has(camera.id));
-    
+
     if (availableCameras.length > 0) {
       setActiveCameras(availableCameras);
       setCameraGridVisible(true);
@@ -66,7 +83,7 @@ const Viewer = () => {
     const R = 6371000; // Earth's radius in meters
     const dLat = (lat2 - lat1) * Math.PI / 180;
     const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
+    const a =
       Math.sin(dLat / 2) * Math.sin(dLat / 2) +
       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
       Math.sin(dLon / 2) * Math.sin(dLon / 2);
@@ -81,7 +98,7 @@ const Viewer = () => {
       if (closedCameras.has(camera.id)) {
         return false;
       }
-      
+
       // Verificar proximidade de 10 metros
       if (camera.lat && camera.lng && location.lat && location.lng) {
         const distance = calculateDistance(
@@ -90,12 +107,12 @@ const Viewer = () => {
           camera.lat,
           camera.lng
         );
-        
+
         if (distance <= 10) { // Within 10 meters
           return true;
         }
       }
-      
+
       return false;
     });
   }, [closedCameras, calculateDistance]);
@@ -104,12 +121,12 @@ const Viewer = () => {
   const handleCloseCamera = useCallback((cameraId) => {
     setClosedCameras(prev => new Set([...prev, cameraId]));
     setActiveCameras(prev => prev.filter(cam => cam.id !== cameraId));
-    
+
     // Se não há mais câmeras ativas, esconder o grid
     if (activeCameras.length <= 1) {
       setCameraGridVisible(false);
     }
-    
+
     console.log('Camera closed by user:', cameraId);
   }, [activeCameras.length]);
 
@@ -146,7 +163,7 @@ const Viewer = () => {
   // Inicializa o mapa apenas uma vez, quando o DOM está pronto
   useLayoutEffect(() => {
     if (mapObject.current || !mapRef.current) return;
-    
+
     mapObject.current = new Map({
       target: mapRef.current,
       layers: [
@@ -164,8 +181,26 @@ const Viewer = () => {
     }, 200);
   }, []);
 
+  // Helper to add coordinate to track if recording
+  const appendLocationToTrack = useCallback((newLocation) => {
+    if (isRecording && newLocation && newLocation.lat && newLocation.lng) {
+      setTrackCoordinates(prev => {
+        // Prevent adding duplicate last point (simple check)
+        if (prev.length > 0) {
+          const lastPoint = prev[prev.length - 1];
+          if (lastPoint[0] === newLocation.lng && lastPoint[1] === newLocation.lat) {
+            return prev;
+          }
+        }
+        return [...prev, [newLocation.lng, newLocation.lat]];
+      });
+    }
+  }, [isRecording]);
+
   // Função para buscar localização do target (baseada no vehicle-tracking)
   const fetchTargetLocation = useCallback(async () => {
+    if (isDemoMode) return null; // Skip fetch in demo mode
+
     try {
       // Primeiro tenta buscar com todas as colunas (incluindo speed e heading)
       let query = supabase
@@ -173,9 +208,9 @@ const Viewer = () => {
         .select('lat, lng, accuracy, speed, heading, created_at')
         .order('created_at', { ascending: false })
         .limit(1);
-      
+
       let { data, error } = await query;
-      
+
       // Se der erro por colunas não existirem, tenta sem speed e heading
       if (error && (error.message?.includes('column') || error.code === '42703')) {
         console.warn('[Location Update] Speed/heading columns may not exist, trying without them:', error);
@@ -184,13 +219,21 @@ const Viewer = () => {
           .select('lat, lng, accuracy, created_at')
           .order('created_at', { ascending: false })
           .limit(1);
-        
+
         const result = await query;
         data = result.data;
         error = result.error;
       }
-      
+
       if (error) {
+        // Se a tabela não existir (código 42P01), ativa o modo DEMO
+        if (error.code === '42P01') {
+          console.warn('[Location Update] Table not found. Switching to Demo Mode.');
+          setIsDemoMode(true);
+          setConnectionStatus('Modo Demonstração (Sem DB)');
+          return null;
+        }
+
         console.error('[Location Update] Error fetching target location:', error);
         // Não mostra erro se não houver dados ainda (tabela vazia)
         if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
@@ -200,13 +243,14 @@ const Viewer = () => {
         }
         return null;
       }
-      
+
       if (data && data.length > 0) {
         const locationData = data[0];
         console.log('[Location Update] Fetching location:', locationData);
         setLocation(locationData);
         setLastUpdate(new Date(locationData.created_at || new Date()).toLocaleString());
         setConnectionStatus('Conectado');
+        appendLocationToTrack(locationData); // Append to track if recording
         return locationData;
       } else {
         // Não há dados ainda, mas não é um erro
@@ -218,7 +262,48 @@ const Viewer = () => {
       setConnectionStatus(`Erro: ${error.message || 'Erro ao buscar localização'}`);
       return null;
     }
-  }, []);
+  }, [isDemoMode, appendLocationToTrack]); // setConnectionStatus, setLocation, setLastUpdate, setIsDemoMode are stable
+
+  // Simula movimento no modo demo
+  useEffect(() => {
+    if (!isDemoMode) {
+      if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+      return;
+    }
+
+    console.log('[Demo Mode] Starting simulation');
+    const centerLat = -22.9035;
+    const centerLng = -43.2096;
+    let angle = 0;
+
+    const simulateMove = () => {
+      // Move em círculos
+      const r = 0.005; // radius approx 500m
+      const newLat = centerLat + r * Math.cos(angle);
+      const newLng = centerLng + r * Math.sin(angle);
+
+      const mockLocation = {
+        lat: newLat,
+        lng: newLng,
+        accuracy: 10,
+        speed: 5.0 + Math.random() * 2,
+        heading: (angle * 180 / Math.PI) % 360,
+        created_at: new Date().toISOString()
+      };
+
+      setLocation(mockLocation);
+      setLastUpdate(new Date().toLocaleString());
+      appendLocationToTrack(mockLocation); // Append to track if recording
+      angle += 0.1;
+    };
+
+    simulateMove(); // First move immediately
+    demoIntervalRef.current = setInterval(simulateMove, 3000);
+
+    return () => {
+      if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
+    };
+  }, [isDemoMode, appendLocationToTrack]); // setLocation, setLastUpdate are stable
 
   // Debounced version of fetchTargetLocation (300ms delay - reduzido para atualizações mais rápidas)
   const debouncedFetchLocation = useMemo(
@@ -229,24 +314,24 @@ const Viewer = () => {
   // Atualiza a posição do marcador e a view quando a localização muda (melhorado com auto-zoom suave)
   useEffect(() => {
     if (!location || !mapObject.current) return;
-    
+
     const coords = fromLonLat([location.lng, location.lat]);
-    
+
     // Atualiza o marcador
     markerSource.current.clear();
     markerFeature.current = new Feature({ geometry: new Point(coords) });
     markerFeature.current.setStyle(hericIconStyle);
     markerSource.current.addFeature(markerFeature.current);
-    
+
     // Auto-zoom suave com animação (baseado no vehicle-tracking)
     if (autoZoomEnabled.current && mapObject.current) {
       const view = mapObject.current.getView();
       const currentCenter = view.getCenter();
-      
+
       // Só anima se a posição mudou significativamente ou é a primeira carga
-      if (!currentCenter || 
-          Math.abs(currentCenter[0] - coords[0]) > 0.0001 || 
-          Math.abs(currentCenter[1] - coords[1]) > 0.0001) {
+      if (!currentCenter ||
+        Math.abs(currentCenter[0] - coords[0]) > 0.0001 ||
+        Math.abs(currentCenter[1] - coords[1]) > 0.0001) {
         // Usa animação suave (flyTo equivalente no OpenLayers)
         view.animate({
           center: coords,
@@ -255,7 +340,7 @@ const Viewer = () => {
         });
       }
     }
-    
+
     // Garante que o mapa se ajuste ao novo tamanho
     setTimeout(() => {
       mapObject.current && mapObject.current.updateSize();
@@ -275,18 +360,41 @@ const Viewer = () => {
     };
   }, []);
 
-  // Busca localização inicial, assina updates em tempo real E atualização periódica (baseado no vehicle-tracking)
+  // Busca localização inicial, assina updates em tempo real E atualização periódica como fallback
   useEffect(() => {
     // Busca inicial
     fetchTargetLocation();
-    
+
+    // Função para iniciar polling
+    const startPolling = () => {
+      if (!locationIntervalRef.current) {
+        console.log('[Location Update] Starting fallback polling (5s interval)');
+        // Fallback polling set to 5s instead of 1s to reduce load when realtime is active or connecting
+        locationIntervalRef.current = setInterval(() => {
+          fetchTargetLocation();
+        }, 5000);
+      }
+    };
+
+    // Função para parar polling
+    const stopPolling = () => {
+      if (locationIntervalRef.current) {
+        console.log('[Location Update] Stopping fallback polling - Realtime connected');
+        clearInterval(locationIntervalRef.current);
+        locationIntervalRef.current = null;
+      }
+    };
+
+    // Start polling initially (until connected)
+    startPolling();
+
     // Realtime subscription (prioritário) - escuta INSERT e UPDATE
     const subscription = supabase
       .channel('location_updates')
-      .on('postgres_changes', { 
+      .on('postgres_changes', {
         event: '*', // Escuta INSERT, UPDATE e DELETE
-        schema: 'public', 
-        table: 'location_updates' 
+        schema: 'public',
+        table: 'location_updates'
       }, (payload) => {
         // Atualiza imediatamente quando há mudança no banco
         if (payload.new) {
@@ -302,26 +410,23 @@ const Viewer = () => {
           setLocation(locationData);
           setLastUpdate(new Date(payload.new.created_at || new Date()).toLocaleString());
           setConnectionStatus('Atualizado em tempo real');
+          appendLocationToTrack(locationData); // Append to track if recording
         }
       })
       .subscribe((status) => {
         console.log('[Location Update] Subscription status:', status);
         if (status === 'SUBSCRIBED') {
           setConnectionStatus('Conectado (tempo real)');
-        } else if (status === 'CHANNEL_ERROR') {
-          setConnectionStatus('Erro na conexão');
-        } else if (status === 'TIMED_OUT') {
-          setConnectionStatus('Conexão expirada - tentando novamente...');
+          stopPolling(); // Stop polling when we have a live connection
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setConnectionStatus('Erro na conexão - usando fallback');
+          startPolling(); // Restart polling on error
+        } else if (status === 'CLOSED') {
+          setConnectionStatus('Conexão fechada - usando fallback');
+          startPolling();
         }
       });
-    
-    // Atualização periódica como fallback (1 segundo - atualizações segundo a segundo)
-    // Isso garante que mesmo se o realtime falhar, ainda temos atualizações
-    // Não usa debounce aqui para garantir atualizações regulares
-    locationIntervalRef.current = setInterval(() => {
-      fetchTargetLocation(); // Chama diretamente sem debounce para atualização periódica
-    }, 1000); // 1 segundo - atualizações segundo a segundo
-    
+
     return () => {
       supabase.removeChannel(subscription);
       if (locationIntervalRef.current) {
@@ -329,55 +434,55 @@ const Viewer = () => {
       }
       debouncedFetchLocation.cancel(); // Cancela qualquer debounce pendente
     };
-  }, [fetchTargetLocation, debouncedFetchLocation]);
+  }, [fetchTargetLocation, debouncedFetchLocation, appendLocationToTrack]); // Added appendLocationToTrack dependency
 
   // Fetch cameras from cameras_detailed.json AND Supabase (combine both)
   useEffect(() => {
     const fetchCameras = async () => {
       const allCameras = [];
-      
+
       // First, try to load from JSON file
       try {
         // Get PUBLIC_URL - in CRA, this is available at runtime
         // In development: empty string
         // In production: the homepage value (e.g., "/wheresheric")
         const publicUrl = process.env.PUBLIC_URL || '';
-        
+
         // Build the correct path
         // Remove trailing slash if present, then add the filename
         const basePath = publicUrl.endsWith('/') ? publicUrl.slice(0, -1) : publicUrl;
-        
+
         // Try multiple path strategies
         const possiblePaths = [];
-        
+
         // Strategy 1: Use PUBLIC_URL if available
         if (basePath) {
           possiblePaths.push(`${basePath}/cameras_detailed.json`);
         }
-        
+
         // Strategy 2: Use absolute path from window.location (works in dev and prod)
         const windowBase = window.location.pathname.split('/').slice(0, -1).join('/') || '';
         if (windowBase && !possiblePaths.includes(`${windowBase}/cameras_detailed.json`)) {
           possiblePaths.push(`${windowBase}/cameras_detailed.json`);
         }
-        
+
         // Strategy 3: Root path (works in development)
         possiblePaths.push('/cameras_detailed.json');
-        
+
         // Strategy 4: Relative to current pathname
-        const relativePath = window.location.pathname.endsWith('/') 
-          ? 'cameras_detailed.json' 
+        const relativePath = window.location.pathname.endsWith('/')
+          ? 'cameras_detailed.json'
           : './cameras_detailed.json';
         possiblePaths.push(relativePath);
-        
+
         console.log(`[Camera Loader] PUBLIC_URL: "${publicUrl}"`);
         console.log(`[Camera Loader] Window location: ${window.location.href}`);
         console.log(`[Camera Loader] Window origin: ${window.location.origin}`);
         console.log(`[Camera Loader] Window pathname: ${window.location.pathname}`);
         console.log(`[Camera Loader] Will try paths:`, possiblePaths);
-        
+
         let camerasJson = null;
-        
+
         // Try each path until one works
         for (const jsonPath of possiblePaths) {
           try {
@@ -389,22 +494,22 @@ const Viewer = () => {
               },
               cache: 'no-cache'
             });
-            
+
             // Check content type first (before reading body)
             const contentType = response.headers.get('content-type') || '';
             const isJson = contentType.includes('application/json');
-            
+
             if (!response.ok) {
               console.warn(`[Camera Loader] HTTP ${response.status} from ${jsonPath}`);
               continue; // Try next path
             }
-            
+
             // Check if response is actually JSON
             if (!isJson) {
               console.warn(`[Camera Loader] Not JSON (${contentType}) from ${jsonPath}`);
               continue; // Try next path
             }
-            
+
             camerasJson = await response.json();
             console.log(`[Camera Loader] Successfully loaded from: ${jsonPath}`);
             break; // Success!
@@ -413,17 +518,17 @@ const Viewer = () => {
             continue; // Try next path
           }
         }
-        
+
         if (!camerasJson) {
           throw new Error(`Failed to load cameras_detailed.json from any path. Tried: ${possiblePaths.join(', ')}`);
         }
-        
+
         console.log('[Camera Loader] Raw JSON keys count:', Object.keys(camerasJson).length);
-        
+
         if (camerasJson && Object.keys(camerasJson).length > 0) {
           // Transform JSON data to expected format
           const transformedCameras = transformCamerasFromJson(camerasJson);
-          
+
           console.log('[Camera Loader] Cameras loaded from JSON:', transformedCameras.length);
           if (transformedCameras.length > 0) {
             console.log('[Camera Loader] Sample camera:', transformedCameras[0]);
@@ -443,7 +548,7 @@ const Viewer = () => {
           console.error('[Camera Loader] Stack:', error.stack);
         }
       }
-      
+
       // Also load from Supabase (combine with JSON cameras)
       try {
         console.log('[Camera Loader] Loading cameras from Supabase...');
@@ -470,7 +575,7 @@ const Viewer = () => {
       } catch (supabaseError) {
         console.error('[Camera Loader] Error loading from Supabase:', supabaseError);
       }
-      
+
       // Set all cameras (JSON + Supabase)
       console.log('[Camera Loader] Total cameras loaded:', allCameras.length);
       setCameras(allCameras);
@@ -483,12 +588,12 @@ const Viewer = () => {
   useEffect(() => {
     if (location && !autoOpenDisabled) { // Só abre automaticamente se não foi fechado manualmente
       const relevantCameras = detectRelevantCameras(location, cameras);
-      
+
       if (relevantCameras.length > 0) {
         setActiveCameras(relevantCameras);
         setCameraGridVisible(true);
         setCameraGridPosition('fullscreen'); // Abre diretamente em fullscreen
-        
+
         if (relevantCameras.length > 1) {
           console.log('Auto-opening multiple cameras within 10m:', relevantCameras.map(c => c.name));
         } else {
@@ -509,12 +614,32 @@ const Viewer = () => {
           <Navbar.Brand href="#">Onde está o Heric?</Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
-            <div className="ms-auto">
+            <div className="ms-auto d-flex align-items-center">
+              <ButtonGroup className="me-3">
+                <Button
+                  variant={isRecording ? "danger" : "outline-success"}
+                  onClick={toggleRecording}
+                  size="sm"
+                >
+                  {isRecording ? "⏹ Parar Gravação" : "⏺ Gravar Trilha"}
+                </Button>
+                {trackCoordinates.length > 0 && (
+                  <Button
+                    variant="outline-warning"
+                    onClick={clearTrack}
+                    size="sm"
+                    title="Limpar Trilha"
+                  >
+                    🗑
+                  </Button>
+                )}
+              </ButtonGroup>
+
               <Badge bg={connectionStatus.includes('Erro') ? 'danger' : 'success'} className="me-2">
                 {connectionStatus}
               </Badge>
-              {lastUpdate && <span className="text-light me-2">Última Atualização: {lastUpdate}</span>}
-              <Button variant="outline-light" onClick={handleShowAboutModal} className="me-2">Sobre</Button>
+              {lastUpdate && <span className="text-light me-2 d-none d-sm-inline">Última Atualização: {lastUpdate}</span>}
+              <Button variant="outline-light" onClick={handleShowAboutModal} className="me-2" size="sm">Sobre</Button>
             </div>
           </Navbar.Collapse>
         </Container>
@@ -532,7 +657,12 @@ const Viewer = () => {
               {panelOpen ? '⮜' : '⮞'}
             </Button>
             <div ref={mapRef} id="map" className="map-container"></div>
-            {mapObject.current && <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />}
+            {mapObject.current && (
+              <>
+                <TrackLayer map={mapObject.current} trackCoordinates={trackCoordinates} />
+                <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />
+              </>
+            )}
           </Col>
           {panelOpen && (
             <Col xs={12} md={3} className="info-col order-1 order-md-2 d-none d-md-block">
@@ -566,8 +696,8 @@ const Viewer = () => {
                       <div className="location-info-item">
                         <span className="info-label">Precisão:</span>
                         <span className="info-value">
-                          {location.accuracy && typeof location.accuracy === 'number' 
-                            ? `${location.accuracy.toFixed(2)}m` 
+                          {location.accuracy && typeof location.accuracy === 'number'
+                            ? `${location.accuracy.toFixed(2)}m`
                             : 'N/A'}
                         </span>
                       </div>
@@ -587,6 +717,15 @@ const Viewer = () => {
                           <span className="info-value">{location.heading.toFixed(0)}°</span>
                         </div>
                       )}
+
+                      {/* Track info */}
+                      {isRecording && (
+                        <div className="location-info-item">
+                          <span className="info-label">Pontos na trilha:</span>
+                          <span className="info-value">{trackCoordinates.length}</span>
+                        </div>
+                      )}
+
                       {/* Última atualização */}
                       {lastUpdate && (
                         <div className="location-info-item">
