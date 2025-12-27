@@ -828,7 +828,7 @@ const Viewer = () => {
             )}
           </Col>
           {panelOpen && (
-            <Col xs={12} md={3} className="info-col order-1 order-md-2 d-none d-md-block">
+            <Col xs={12} md={3} className="info-col order-1 order-md-2">
               <Button
                 variant="outline-secondary"
                 className="toggle-panel-btn d-none d-md-block mb-2"
@@ -962,7 +962,7 @@ const Viewer = () => {
           <Modal.Title>Sobre o Projeto</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <p>Este é um projeto de geolocalização em tempo real para rastrear a localização do Heric.</p>
+          <p>Este é um projeto para rastrear a localização do Heric.</p>
           <p>Desenvolvido com React, OpenLayers e Supabase.</p>
         </Modal.Body>
         <Modal.Footer>

@@ -36,7 +36,7 @@ const TrackLayer = ({ map, trackCoordinates = [], color = 'rgba(0, 102, 255, 0.7
                 map.removeLayer(layerRef.current);
             }
         };
-    }, [map]);
+    }, [map, color, width, lineDash]);
 
     // Update geometry when coordinates change
     useEffect(() => {
