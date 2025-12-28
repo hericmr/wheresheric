@@ -928,15 +928,17 @@ const Viewer = () => {
       <Container fluid className="main-content">
         <Row className="h-100 flex-md-row flex-column-reverse">
           <Col xs={12} md={9} className={`map-col order-2 order-md-1${panelOpen ? '' : ' map-col-full'}`}>
-            <Button
-              variant="primary"
-              className="toggle-panel-btn d-md-none"
-              onClick={() => setPanelOpen(!panelOpen)}
-              aria-label={panelOpen ? 'Fechar painel' : 'Abrir painel'}
-              style={{ position: 'absolute', top: 16, left: 16, zIndex: 1000 }}
-            >
-              {panelOpen ? '⮜' : '⮞'}
-            </Button>
+            {!panelOpen && (
+              <Button
+                variant="primary"
+                className="toggle-panel-btn d-md-none"
+                onClick={() => setPanelOpen(true)}
+                aria-label="Abrir painel"
+                style={{ position: 'absolute', top: 16, right: 16, zIndex: 1100, borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ℹ️
+              </Button>
+            )}
             <div ref={mapRef} id="map" className="map-container"></div>
             {mapObject.current && (
               <>
@@ -962,125 +964,126 @@ const Viewer = () => {
               </>
             )}
           </Col>
-          {panelOpen && (
-            <Col xs={12} md={3} className="info-col order-1 order-md-2">
+          <Col xs={12} md={3} className={`info-col order-1 order-md-2 ${panelOpen ? 'visible' : ''}`}>
+            <div className="d-flex justify-content-between align-items-center mb-2">
+              <h5 className="mb-0">Detalhes</h5>
               <Button
                 variant="outline-secondary"
-                className="toggle-panel-btn d-none d-md-block mb-2"
+                className="toggle-panel-btn"
                 onClick={() => setPanelOpen(false)}
                 aria-label="Fechar painel"
-                style={{ alignSelf: 'flex-end' }}
+                style={{ borderRadius: '50%', width: '35px', height: '35px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
               >
                 ×
               </Button>
-              {/* Loop through users to display cards */}
-              {Object.entries(users).map(([userId, userLoc]) => (
-                <Card className="mt-3" key={userId}>
-                  <Card.Header className={userLoc && isAtHome(userLoc) ? "bg-success text-white" : ""}>
-                    <div className="d-flex align-items-center">
-                      <img
-                        src={userId === 'heric' ? 'https://hericmr.github.io/me/imagens/heric.png' : process.env.PUBLIC_URL + '/bruno.png'}
-                        alt={userId}
-                        style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px', objectFit: 'cover' }}
-                      />
-                      <strong>
-                        {userId === 'heric' ? "Heric" : "Bruno"}
-                        {userLoc && isAtHome(userLoc) ? " está em casa!" : " está aqui!"}
-                      </strong>
-                    </div>
-                  </Card.Header>
-                  <Card.Body>
-                    {userLoc ? (
-                      userLoc.isProbable ? (
-                        <div className="waiting-message">
-                          <p><strong>O Bruno ainda não entrou no aplicativo.</strong></p>
-                          <p>Portanto ele deve estar na casa dele.</p>
-                        </div>
-                      ) : (
-                        <div className="location-info-grid">
-                          {/* Latitude */}
-                          <div className="location-info-item">
-                            <span className="info-label">Latitude:</span>
-                            <span className="info-value">{typeof userLoc.lat === 'number' ? userLoc.lat.toFixed(6) : userLoc.lat || 'N/A'}</span>
-                          </div>
-                          {/* Longitude */}
-                          <div className="location-info-item">
-                            <span className="info-label">Longitude:</span>
-                            <span className="info-value">{typeof userLoc.lng === 'number' ? userLoc.lng.toFixed(6) : userLoc.lng || 'N/A'}</span>
-                          </div>
-                          {/* Precisão */}
-                          <div className="location-info-item">
-                            <span className="info-label">Precisão:</span>
-                            <span className="info-value">
-                              {userLoc.accuracy && typeof userLoc.accuracy === 'number'
-                                ? `${userLoc.accuracy.toFixed(2)}m`
-                                : 'N/A'}
-                            </span>
-                          </div>
-                          {/* Velocidade */}
-                          <div className="location-info-item">
-                            <span className="info-label">Velocidade:</span>
-                            <span className="info-value speed-value">
-                              {userLoc.speed !== null && userLoc.speed !== undefined && typeof userLoc.speed === 'number'
-                                ? `${(userLoc.speed * 3.6).toFixed(1)} km/h`
-                                : '0.0 km/h'}
-                            </span>
-                          </div>
-
-                          {/* Direção - opcional */}
-                          {userLoc.heading !== null && userLoc.heading !== undefined && typeof userLoc.heading === 'number' && (
-                            <div className="location-info-item">
-                              <span className="info-label">Direção:</span>
-                              <span className="info-value">{userLoc.heading.toFixed(0)}°</span>
-                            </div>
-                          )}
-
-                          {/* Altitude - opcional */}
-                          {userLoc.altitude !== null && userLoc.altitude !== undefined && typeof userLoc.altitude === 'number' && (
-                            <div className="location-info-item">
-                              <span className="info-label">Altitude:</span>
-                              <span className="info-value">
-                                {userLoc.altitude.toFixed(1)}m
-                                {userLoc.altitude_accuracy ? ` (±${userLoc.altitude_accuracy.toFixed(1)}m)` : ''}
-                              </span>
-                            </div>
-                          )}
-
-                          {/* Track info (only relevant if recording, maybe general or per user?) */}
-                          {isRecording && userId === 'heric' && (
-                            <div className="location-info-item">
-                              <span className="info-label">Pontos na trilha:</span>
-                              <span className="info-value">{trackCoordinates.length}</span>
-                            </div>
-                          )}
-
-                          {/* Última atualização */}
-                          <div className="location-info-item">
-                            <span className="info-label">Última Atualização:</span>
-                            <span className="info-value">
-                              {new Date(userLoc.created_at).toLocaleString()}
-                            </span>
-                          </div>
-                        </div>
-                      )
+            </div>
+            {/* Loop through users to display cards */}
+            {Object.entries(users).map(([userId, userLoc]) => (
+              <Card className="mt-3" key={userId}>
+                <Card.Header className={userLoc && isAtHome(userLoc) ? "bg-success text-white" : ""}>
+                  <div className="d-flex align-items-center">
+                    <img
+                      src={userId === 'heric' ? 'https://hericmr.github.io/me/imagens/heric.png' : process.env.PUBLIC_URL + '/bruno.png'}
+                      alt={userId}
+                      style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px', objectFit: 'cover' }}
+                    />
+                    <strong>
+                      {userId === 'heric' ? "Heric" : "Bruno"}
+                      {userLoc && isAtHome(userLoc) ? " está em casa!" : " está aqui!"}
+                    </strong>
+                  </div>
+                </Card.Header>
+                <Card.Body>
+                  {userLoc ? (
+                    userLoc.isProbable ? (
+                      <div className="waiting-message">
+                        <p><strong>O Bruno ainda não entrou no aplicativo.</strong></p>
+                        <p>Portanto ele deve estar na casa dele.</p>
+                      </div>
                     ) : (
-                      <div className="waiting-message">Aguardando dados...</div>
-                    )}
-                  </Card.Body>
-                </Card>
-              ))}
+                      <div className="location-info-grid">
+                        {/* Latitude */}
+                        <div className="location-info-item">
+                          <span className="info-label">Latitude:</span>
+                          <span className="info-value">{typeof userLoc.lat === 'number' ? userLoc.lat.toFixed(6) : userLoc.lat || 'N/A'}</span>
+                        </div>
+                        {/* Longitude */}
+                        <div className="location-info-item">
+                          <span className="info-label">Longitude:</span>
+                          <span className="info-value">{typeof userLoc.lng === 'number' ? userLoc.lng.toFixed(6) : userLoc.lng || 'N/A'}</span>
+                        </div>
+                        {/* Precisão */}
+                        <div className="location-info-item">
+                          <span className="info-label">Precisão:</span>
+                          <span className="info-value">
+                            {userLoc.accuracy && typeof userLoc.accuracy === 'number'
+                              ? `${userLoc.accuracy.toFixed(2)}m`
+                              : 'N/A'}
+                          </span>
+                        </div>
+                        {/* Velocidade */}
+                        <div className="location-info-item">
+                          <span className="info-label">Velocidade:</span>
+                          <span className="info-value speed-value">
+                            {userLoc.speed !== null && userLoc.speed !== undefined && typeof userLoc.speed === 'number'
+                              ? `${(userLoc.speed * 3.6).toFixed(1)} km/h`
+                              : '0.0 km/h'}
+                          </span>
+                        </div>
 
-              {Object.keys(users).length === 0 && (
-                <Card className="mt-3">
-                  <Card.Body>
-                    <div className="waiting-message">
-                      <p>📍 Aguardando dados de localização...</p>
-                    </div>
-                  </Card.Body>
-                </Card>
-              )}
-            </Col>
-          )}
+                        {/* Direção - opcional */}
+                        {userLoc.heading !== null && userLoc.heading !== undefined && typeof userLoc.heading === 'number' && (
+                          <div className="location-info-item">
+                            <span className="info-label">Direção:</span>
+                            <span className="info-value">{userLoc.heading.toFixed(0)}°</span>
+                          </div>
+                        )}
+
+                        {/* Altitude - opcional */}
+                        {userLoc.altitude !== null && userLoc.altitude !== undefined && typeof userLoc.altitude === 'number' && (
+                          <div className="location-info-item">
+                            <span className="info-label">Altitude:</span>
+                            <span className="info-value">
+                              {userLoc.altitude.toFixed(1)}m
+                              {userLoc.altitude_accuracy ? ` (±${userLoc.altitude_accuracy.toFixed(1)}m)` : ''}
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Track info (only relevant if recording, maybe general or per user?) */}
+                        {isRecording && userId === 'heric' && (
+                          <div className="location-info-item">
+                            <span className="info-label">Pontos na trilha:</span>
+                            <span className="info-value">{trackCoordinates.length}</span>
+                          </div>
+                        )}
+
+                        {/* Última atualização */}
+                        <div className="location-info-item">
+                          <span className="info-label">Última Atualização:</span>
+                          <span className="info-value">
+                            {new Date(userLoc.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="waiting-message">Aguardando dados...</div>
+                  )}
+                </Card.Body>
+              </Card>
+            ))}
+
+            {Object.keys(users).length === 0 && (
+              <Card className="mt-3">
+                <Card.Body>
+                  <div className="waiting-message">
+                    <p>📍 Aguardando dados de localização...</p>
+                  </div>
+                </Card.Body>
+              </Card>
+            )}
+          </Col>
         </Row>
       </Container>
       {/* History Modal */}
@@ -1149,4 +1152,3 @@ const Viewer = () => {
 };
 
 export default Viewer;
-
