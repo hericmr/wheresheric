@@ -53,7 +53,7 @@ const Viewer = () => {
   const [isDemoMode] = useState(false); // Removed setter setIsDemoMode as it was unused and causing warnings
 
   // Track recording state
-  const [isRecording, setIsRecording] = useState(false);
+  const [isRecording] = useState(false);
   const [trackCoordinates, setTrackCoordinates] = useState([]);
 
   // History state
@@ -277,9 +277,6 @@ const Viewer = () => {
 
       const roundedStyle = new Style({
         image: new Icon({
-          anchor: [0.5, 1], // Bottom center anchor for marker pin effect? Or center? 
-          // Heric uses [0.5, 1], which is typical for "Pin" style images.
-          // But if it's just a circle (avatar), maybe [0.5, 0.5]? 
           // User said "equal to Heric". Heric is [0.5, 1]. I will stick to [0.5, 1] for position consistency.
           anchor: [0.5, 1],
           src: canvas.toDataURL(),
