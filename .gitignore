@@ -35,3 +35,4 @@ public/vehicle-tracking/
 # Temporary CSV files (source data)
 *.csv
 scripts/*.csv
+node_modules

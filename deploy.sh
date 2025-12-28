@@ -21,6 +21,7 @@ git subtree push --prefix build origin gh-pages || {
     git checkout --orphan gh-pages-temp
     git rm -rf . 2>/dev/null || true
     cp -r build/* .
+    echo "/node_modules" > .gitignore
     git add -A
     git commit -m "Deploy to GitHub Pages - $(date)"
     git branch -D gh-pages 2>/dev/null || true
