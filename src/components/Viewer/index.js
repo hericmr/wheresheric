@@ -14,18 +14,33 @@ import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
-import { Navbar, Container, Row, Col, Card, Button, Badge, Modal, ButtonGroup, Form, InputGroup } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Modal, Navbar, Form, InputGroup, ButtonGroup } from 'react-bootstrap';
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
 import TrackLayer from '../TrackLayer';
 import './styles.css';
 
 
+// ... inside component removed
+
+const BRUNO_HOME_LOCATION = {
+  lat: -23.967804,
+  lng: -46.342962,
+  accuracy: 50,
+  speed: 0,
+  heading: 0,
+  altitude: 0,
+  user_id: 'bruno',
+  created_at: new Date().toISOString(),
+  isProbable: true // Flag to indicate this is a fallback/probable location
+};
+
 const Viewer = () => {
   console.log('Viewer component rendering');
-  const [location, setLocation] = useState(null);
-  const [showCameras, setShowCameras] = useState(true); // Toggle visibility of cameras
-  const [connectionStatus, setConnectionStatus] = useState('Conectando...');
+  const [users, setUsers] = useState({}); // Stores data for { heric: ..., bruno: ... }
+  const [location, setLocation] = useState(null); // Deprecated, keeping for temporary compat if needed, but we will transition to 'users'
+  const [showCameras, setShowCameras] = useState(false); // Toggle visibility of cameras - Default: HIDDEN
+  // const [connectionStatus, setConnectionStatus] = useState('Conectando...'); // Unused
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
   const [panelOpen, setPanelOpen] = useState(true); // Start expanded (open)
@@ -35,7 +50,7 @@ const Viewer = () => {
   const [cameraGridPosition, setCameraGridPosition] = useState('expanded'); // Posição do grid
   const [closedCameras, setClosedCameras] = useState(new Set()); // Câmeras fechadas pelo usuário
   const [autoOpenDisabled, setAutoOpenDisabled] = useState(false); // Se o usuário fechou manualmente, não abrir automaticamente
-  const [isDemoMode, setIsDemoMode] = useState(false); // Fallback para modo demo se a DB falhar
+  const [isDemoMode] = useState(false); // Removed setter setIsDemoMode as it was unused and causing warnings
 
   // Track recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -47,10 +62,15 @@ const Viewer = () => {
   const [historyCoordinates, setHistoryCoordinates] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // BRUNO_HOME_LOCATION moved outside component
+
   const mapRef = useRef();
   const mapObject = useRef(null);
   const markerSource = useRef(new VectorSource());
-  const markerFeature = useRef(null);
+  // Refs for managing multiple markers
+  const markersRef = useRef({}); // { userId: Feature }
+  const animatedPosRef = useRef({}); // { userId: [x, y] }
+  const animationFrameRefs = useRef({}); // { userId: frameId }
   const locationIntervalRef = useRef(null); // Ref for periodic location updates
   const autoZoomEnabled = useRef(true); // Auto-zoom enabled by default
   const demoIntervalRef = useRef(null); // Intervalo para modo demo
@@ -59,9 +79,9 @@ const Viewer = () => {
   const handleShowAboutModal = () => setShowAboutModal(true);
 
   // Toggle recording
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-  };
+  // const toggleRecording = () => {
+  //   setIsRecording(!isRecording);
+  // };
 
   // Clear track
   const clearTrack = () => {
@@ -233,6 +253,50 @@ const Viewer = () => {
     }),
   }), []);
 
+  // State to hold the rounded Bruno style
+  const [brunoStyle, setBrunoStyle] = useState(null);
+
+  // Effect to generate circular icon for Bruno
+  useEffect(() => {
+    const img = new Image();
+    img.src = process.env.PUBLIC_URL + '/bruno.png';
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const size = Math.min(img.width, img.height);
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      ctx.beginPath();
+      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.clip();
+
+      ctx.drawImage(img, 0, 0, size, size);
+
+      const roundedStyle = new Style({
+        image: new Icon({
+          anchor: [0.5, 1], // Bottom center anchor for marker pin effect? Or center? 
+          // Heric uses [0.5, 1], which is typical for "Pin" style images.
+          // But if it's just a circle (avatar), maybe [0.5, 0.5]? 
+          // User said "equal to Heric". Heric is [0.5, 1]. I will stick to [0.5, 1] for position consistency.
+          anchor: [0.5, 1],
+          src: canvas.toDataURL(),
+          scale: 0.25, // Restored to 0.25 to visually match Heric's marker size
+        }),
+      });
+      setBrunoStyle(roundedStyle);
+    };
+  }, []);
+
+  const getIconForUser = useCallback((userId) => {
+    if (userId === 'bruno') {
+      return brunoStyle || hericIconStyle; // Fallback to Heric (or plain) while loading
+    }
+    return hericIconStyle;
+  }, [hericIconStyle, brunoStyle]);
+
   // Inicializa o mapa apenas uma vez, quando o DOM está pronto
   useLayoutEffect(() => {
     if (mapObject.current || !mapRef.current) return;
@@ -273,74 +337,82 @@ const Viewer = () => {
     }
   }, [isRecording]);
 
-  // Função para buscar localização do target (baseada no vehicle-tracking)
-  const fetchTargetLocation = useCallback(async () => {
-    if (isDemoMode) return null; // Skip fetch in demo mode
+  // Fetch latest location for a specific user
+  const fetchUserLocation = useCallback(async (userId) => {
+    if (isDemoMode) return null;
 
     try {
-      // Primeiro tenta buscar com todas as colunas (incluindo speed e heading)
-      let query = supabase
+      // Fetch latest point for this user
+      const { data, error } = await supabase
         .from('location_updates')
-        .select('lat, lng, accuracy, speed, heading, altitude, altitude_accuracy, created_at')
+        .select('*') // Select all columns
+        .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1);
 
-      let { data, error } = await query;
-
-      // Se der erro por colunas não existirem, tenta sem speed e heading
-      if (error && (error.message?.includes('column') || error.code === '42703')) {
-        console.warn('[Location Update] Speed/heading columns may not exist, trying without them:', error);
-        query = supabase
-          .from('location_updates')
-          .select('lat, lng, accuracy, created_at')
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        const result = await query;
-        data = result.data;
-        error = result.error;
-      }
-
       if (error) {
-        // Se a tabela não existir (código 42P01), ativa o modo DEMO
-        if (error.code === '42P01') {
-          console.warn('[Location Update] Table not found. Switching to Demo Mode.');
-          setIsDemoMode(true);
-          setConnectionStatus('Modo Demonstração (Sem DB)');
-          return null;
-        }
-
-        console.error('[Location Update] Error fetching target location:', error);
-        // Não mostra erro se não houver dados ainda (tabela vazia)
-        if (error.code === 'PGRST116' || error.message?.includes('No rows')) {
-          setConnectionStatus('Aguardando dados...');
-        } else {
-          setConnectionStatus(`Erro: ${error.message || 'Erro ao buscar localização'}`);
-        }
-        return null;
+        console.warn(`[Location Update] Error fetching for ${userId}:`, error.message);
+        // If error, treat as no data found for fallback logic
       }
 
+      let locationData = null;
       if (data && data.length > 0) {
-        const locationData = data[0];
-        console.log('[Location Update] Fetching location:', locationData);
-        setLocation(locationData);
-        setLastUpdate(new Date(locationData.created_at || new Date()).toLocaleString());
-        setConnectionStatus('Conectado');
-        appendLocationToTrack(locationData); // Append to track if recording
+        const fetchedData = data[0];
+
+        // Critical Validation: Check if coordinates exist
+        if (fetchedData.lat === null || fetchedData.lng === null || fetchedData.lat === undefined || fetchedData.lng === undefined) {
+          console.warn(`[Location Update] Ignored invalid record for ${userId} (missing lat/lng):`, fetchedData);
+          // Treat invalid data as no data found for the purpose of the fallback.
+        } else {
+          locationData = fetchedData;
+        }
+      }
+
+      if (locationData) {
+        console.log(`[Location Update] Fetching location for ${userId}:`, locationData);
+
+        setUsers(prev => ({
+          ...prev,
+          [userId]: locationData
+        }));
+
+        // Compatibility/Primary update (for legacy "location" state if strictly needed, or just remove it)
+        if (userId === 'heric') {
+          setLocation(locationData);
+          setLastUpdate(new Date(locationData.created_at || new Date()).toLocaleString());
+          // setConnectionStatus('Conectado');
+        }
+
+        appendLocationToTrack(locationData);
         return locationData;
       } else {
-        // Não há dados ainda, mas não é um erro
-        setConnectionStatus('Aguardando dados...');
-        return null;
+        // Fallback for Bruno if no data (or invalid data) found
+        if (userId === 'bruno') {
+          console.log('[Location Update] No data for Bruno, using probable home location.');
+          setUsers(prev => ({
+            ...prev,
+            [userId]: BRUNO_HOME_LOCATION
+          }));
+          return BRUNO_HOME_LOCATION;
+        }
       }
+
+      return null;
     } catch (error) {
-      console.error('[Location Update] Error fetching target location:', error);
-      setConnectionStatus(`Erro: ${error.message || 'Erro ao buscar localização'}`);
+      console.error(`[Location Update] Exception fetching for ${userId}:`, error);
       return null;
     }
-  }, [isDemoMode, appendLocationToTrack]); // setConnectionStatus, setLocation, setLastUpdate, setIsDemoMode are stable
+  }, [isDemoMode, appendLocationToTrack]);
+
+  // Fetch all known users
+  const fetchAllLocations = useCallback(async () => {
+    // Define users to track
+    const trackedUsers = ['heric', 'bruno'];
+    await Promise.all(trackedUsers.map(uid => fetchUserLocation(uid)));
+  }, [fetchUserLocation]);
 
   // Simula movimento no modo demo
+  // Simula movimento no modo demo (Only for Heric)
   useEffect(() => {
     if (!isDemoMode) {
       if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
@@ -364,12 +436,14 @@ const Viewer = () => {
         accuracy: 10,
         speed: 5.0 + Math.random() * 2,
         heading: (angle * 180 / Math.PI) % 360,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        user_id: 'heric'
       };
 
+      setUsers(prev => ({ ...prev, heric: mockLocation }));
       setLocation(mockLocation);
       setLastUpdate(new Date().toLocaleString());
-      appendLocationToTrack(mockLocation); // Append to track if recording
+      appendLocationToTrack(mockLocation);
       angle += 0.1;
     };
 
@@ -379,101 +453,101 @@ const Viewer = () => {
     return () => {
       if (demoIntervalRef.current) clearInterval(demoIntervalRef.current);
     };
-  }, [isDemoMode, appendLocationToTrack]); // setLocation, setLastUpdate are stable
+  }, [isDemoMode, appendLocationToTrack]);
 
-  // Debounced version of fetchTargetLocation (300ms delay - reduzido para atualizações mais rápidas)
+  // Debounced version of fetchAllLocations
   const debouncedFetchLocation = useMemo(
-    () => debounce(fetchTargetLocation, 300),
-    [fetchTargetLocation]
+    () => debounce(fetchAllLocations, 300),
+    [fetchAllLocations]
   );
 
-  // Ref para armazenar a posição atual da animação
-  const currentAnimatedPos = useRef(null);
-  const animationFrameRef = useRef(null);
+  // Ref para armazenar a posição atual da animação (agora gerenciado em animatedPosRef e animationFrameRefs)
+  // const currentAnimatedPos = useRef(null); // Unused
+  // const animationFrameRef = useRef(null); // Unused
 
   // Atualiza a posição do marcador e a view quando a localização muda (com animação suave/interpolação)
   useEffect(() => {
-    if (!location || !mapObject.current) return;
+    if (!mapObject.current) return;
 
-    const targetCoords = fromLonLat([location.lng, location.lat]);
+    Object.entries(users).forEach(([userId, userLoc]) => {
+      if (!userLoc) return;
 
-    // Se é a primeira vez, apenas posiciona sem animar
-    if (!currentAnimatedPos.current) {
-      currentAnimatedPos.current = targetCoords;
+      const targetCoords = fromLonLat([userLoc.lng, userLoc.lat]);
 
-      markerSource.current.clear();
-      markerFeature.current = new Feature({ geometry: new Point(targetCoords) });
-      markerFeature.current.setStyle(hericIconStyle);
-      markerSource.current.addFeature(markerFeature.current);
+      // Initialize marker if not exists
+      if (!markersRef.current[userId]) {
+        console.log(`[Map] Creating new marker for ${userId}`);
+        const feature = new Feature({ geometry: new Point(targetCoords) });
+        feature.setStyle(getIconForUser(userId));
+        markerSource.current.addFeature(feature);
+        markersRef.current[userId] = feature;
+        animatedPosRef.current[userId] = targetCoords;
 
-      // Ajusta o mapa inicial
-      const view = mapObject.current.getView();
-      view.setCenter(targetCoords);
-      view.setZoom(16);
-
-      return;
-    }
-
-    // Se já tem posição anterior, inicia a animação de interpolação
-    const startCoords = currentAnimatedPos.current;
-    const startTime = Date.now();
-    const duration = 2000; // 2 segundos para percorrer até o novo ponto (suavidade)
-
-    const animate = () => {
-      const now = Date.now();
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // Função de Easing (suavização) - Ease Out Quart
-      const ease = 1 - Math.pow(1 - progress, 4);
-
-      // Interpolação Linear (Lerp) das coordenadas
-      const currentX = startCoords[0] + (targetCoords[0] - startCoords[0]) * ease;
-      const currentY = startCoords[1] + (targetCoords[1] - startCoords[1]) * ease;
-      const currentCoords = [currentX, currentY];
-
-      // Atualiza a referência de posição atual
-      currentAnimatedPos.current = currentCoords;
-
-      // Atualiza a geometria do marcador
-      if (markerFeature.current) {
-        markerFeature.current.setGeometry(new Point(currentCoords));
-
-        // Opcional: Rotacionar o ícone se houver heading
-        if (location.heading) {
-          const style = markerFeature.current.getStyle();
-          // OpenLayers rotation é em radianos e sentido horário. Heading geralmente é graus.
-          // Precisamos converter.
-          const rotation = (location.heading * Math.PI) / 180;
-          style.getImage().setRotation(rotation);
+        // Initial centering (optional, maybe only for Heric or if single user)
+        if (userId === 'heric' && autoZoomEnabled.current) {
+          mapObject.current.getView().setCenter(targetCoords);
         }
+        return;
       }
 
-      // Atualiza o centro do mapa para seguir o marcador (suavemente)
-      if (autoZoomEnabled.current && mapObject.current) {
-        mapObject.current.getView().setCenter(currentCoords);
+      // Animation logic
+      const startCoords = animatedPosRef.current[userId] || targetCoords;
+      const startTime = Date.now();
+      const duration = 2000;
+
+      const animate = () => {
+        const now = Date.now();
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const ease = 1 - Math.pow(1 - progress, 4);
+
+        const currentX = startCoords[0] + (targetCoords[0] - startCoords[0]) * ease;
+        const currentY = startCoords[1] + (targetCoords[1] - startCoords[1]) * ease;
+        const currentCoords = [currentX, currentY];
+
+        animatedPosRef.current[userId] = currentCoords;
+
+        const feature = markersRef.current[userId];
+        if (feature) {
+          feature.setGeometry(new Point(currentCoords));
+          if (userLoc.heading) {
+            const style = feature.getStyle();
+            // Clone style to avoid affecting others (though they are distinct objects usually)
+            // Actually setRotation on the image instance
+            const rotation = (userLoc.heading * Math.PI) / 180;
+            style.getImage().setRotation(rotation);
+          }
+        }
+
+        // Follow logic: fit view to all users if autoZoom is enabled
+        if (autoZoomEnabled.current && mapObject.current) {
+          const extent = markerSource.current.getExtent();
+          // Check if extent is valid and not infinite
+          if (extent && !extent.includes(Infinity)) {
+            // Fit view with some padding
+            mapObject.current.getView().fit(extent, {
+              padding: [50, 50, 50, 50],
+              maxZoom: 17,
+              duration: 1000 // Smooth transition
+            });
+          } else if (userId === 'heric') {
+            // Fallback to center on Heric if only one point
+            mapObject.current.getView().setCenter(currentCoords);
+          }
+        }
+
+        if (progress < 1) {
+          animationFrameRefs.current[userId] = requestAnimationFrame(animate);
+        }
+      };
+
+      if (animationFrameRefs.current[userId]) {
+        cancelAnimationFrame(animationFrameRefs.current[userId]);
       }
+      animationFrameRefs.current[userId] = requestAnimationFrame(animate);
+    });
 
-      // Continua a animação se não acabou
-      if (progress < 1) {
-        animationFrameRef.current = requestAnimationFrame(animate);
-      }
-    };
-
-    // Cancela animação anterior se houver
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
-
-    // Inicia nova animação
-    animationFrameRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [location, hericIconStyle]);
+  }, [users, getIconForUser]);
 
   // Atualiza o tamanho do mapa ao redimensionar a janela
   useEffect(() => {
@@ -491,15 +565,14 @@ const Viewer = () => {
   // Busca localização inicial, assina updates em tempo real E atualização periódica como fallback
   useEffect(() => {
     // Busca inicial
-    fetchTargetLocation();
+    fetchAllLocations();
 
     // Função para iniciar polling
     const startPolling = () => {
       if (!locationIntervalRef.current) {
         console.log('[Location Update] Starting fallback polling (5s interval)');
-        // Fallback polling set to 5s instead of 1s to reduce load when realtime is active or connecting
         locationIntervalRef.current = setInterval(() => {
-          fetchTargetLocation();
+          fetchAllLocations(); // Fetch all users
         }, 5000);
       }
     };
@@ -529,30 +602,43 @@ const Viewer = () => {
           console.log('[Location Update] Realtime update received:', payload.new);
           const locationData = {
             ...payload.new,
-            lat: payload.new.lat,
-            lng: payload.new.lng,
-            accuracy: payload.new.accuracy,
-            speed: payload.new.speed,
-            heading: payload.new.heading,
-            altitude: payload.new.altitude,
-            altitude_accuracy: payload.new.altitude_accuracy
+            // Ensure numbers
+            lat: Number(payload.new.lat),
+            lng: Number(payload.new.lng),
+            accuracy: Number(payload.new.accuracy),
+            speed: Number(payload.new.speed),
+            heading: Number(payload.new.heading),
+            altitude: Number(payload.new.altitude),
+            altitude_accuracy: Number(payload.new.altitude_accuracy)
           };
-          setLocation(locationData);
-          setLastUpdate(new Date(payload.new.created_at || new Date()).toLocaleString());
-          setConnectionStatus('Atualizado em tempo real');
-          appendLocationToTrack(locationData); // Append to track if recording
+
+          const userId = locationData.user_id || 'heric'; // Default to heric if missing (legacy)
+
+          setUsers(prev => ({
+            ...prev,
+            [userId]: locationData
+          }));
+
+          // Legacy sync
+          if (userId === 'heric') {
+            setLocation(locationData);
+            setLastUpdate(new Date(locationData.created_at || new Date()).toLocaleString());
+            // setConnectionStatus('Atualizado em tempo real');
+          }
+
+          appendLocationToTrack(locationData);
         }
       })
       .subscribe((status) => {
         console.log('[Location Update] Subscription status:', status);
         if (status === 'SUBSCRIBED') {
-          setConnectionStatus('Conectado (tempo real)');
-          stopPolling(); // Stop polling when we have a live connection
+          // if (!isDemoMode) setConnectionStatus('Conectado (tempo real)');
+          stopPolling();
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          setConnectionStatus('Erro na conexão - usando fallback');
-          startPolling(); // Restart polling on error
+          // setConnectionStatus('Erro na conexão - usando fallback');
+          startPolling();
         } else if (status === 'CLOSED') {
-          setConnectionStatus('Conexão fechada - usando fallback');
+          // setConnectionStatus('Conexão fechada - usando fallback');
           startPolling();
         }
       });
@@ -562,9 +648,9 @@ const Viewer = () => {
       if (locationIntervalRef.current) {
         clearInterval(locationIntervalRef.current);
       }
-      debouncedFetchLocation.cancel(); // Cancela qualquer debounce pendente
+      debouncedFetchLocation.cancel();
     };
-  }, [fetchTargetLocation, debouncedFetchLocation, appendLocationToTrack]); // Added appendLocationToTrack dependency
+  }, [fetchAllLocations, debouncedFetchLocation, appendLocationToTrack, isDemoMode]);
 
   // Fetch cameras from cameras_detailed.json AND Supabase (combine both)
   useEffect(() => {
@@ -741,18 +827,14 @@ const Viewer = () => {
     <div className="viewer-page">
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container fluid>
-          <Navbar.Brand href="#">Onde está o Heric?</Navbar.Brand>
+          <Navbar.Brand href="#">
+            {users.bruno ? "Onde está o Heric e o Bruno?" : "Onde está o Heric?"}
+          </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <div className="ms-auto d-flex align-items-center">
               <ButtonGroup className="me-3">
-                <Button
-                  variant={isRecording ? "danger" : "outline-success"}
-                  onClick={toggleRecording}
-                  size="sm"
-                >
-                  {isRecording ? "⏹ Parar Gravação" : "⏺ Gravar Trilha"}
-                </Button>
+                {/* Button Removed as per request */}
                 {trackCoordinates.length > 0 && (
                   <Button
                     variant="outline-warning"
@@ -771,19 +853,70 @@ const Viewer = () => {
                 >
                   Histórico
                 </Button>
-                <Button
-                  variant={showCameras ? "outline-primary" : "outline-secondary"}
-                  onClick={() => setShowCameras(!showCameras)}
-                  size="sm"
-                  title={showCameras ? "Ocultar Câmeras" : "Mostrar Câmeras"}
-                >
-                  {showCameras ? "Ocultar Câmeras" : "Mostrar Câmeras"}
-                </Button>
               </ButtonGroup>
 
-              <Badge bg={connectionStatus.includes('Erro') ? 'danger' : 'success'} className="me-2">
-                {connectionStatus}
-              </Badge>
+              {/* iOS-style Switch for Cameras */}
+              <div className="d-flex align-items-center me-3">
+                <style>
+                  {`
+                    .camera-switch {
+                      position: relative;
+                      display: inline-block;
+                      width: 50px;
+                      height: 28px;
+                    }
+                    .camera-switch input {
+                      opacity: 0;
+                      width: 0;
+                      height: 0;
+                    }
+                    .slider {
+                      position: absolute;
+                      cursor: pointer;
+                      top: 0;
+                      left: 0;
+                      right: 0;
+                      bottom: 0;
+                      background-color: #ccc;
+                      transition: .4s;
+                      border-radius: 34px;
+                    }
+                    .slider:before {
+                      position: absolute;
+                      content: "";
+                      height: 20px;
+                      width: 20px;
+                      left: 4px;
+                      bottom: 4px;
+                      background-color: white;
+                      transition: .4s;
+                      border-radius: 50%;
+                    }
+                    input:checked + .slider {
+                      background-color: #2196F3;
+                    }
+                    input:focus + .slider {
+                      box-shadow: 0 0 1px #2196F3;
+                    }
+                    input:checked + .slider:before {
+                      transform: translateX(22px);
+                    }
+                  `}
+                </style>
+                <label className="camera-switch" title={showCameras ? "Ocultar Câmeras" : "Mostrar Câmeras"}>
+                  <input
+                    type="checkbox"
+                    checked={showCameras}
+                    onChange={() => setShowCameras(!showCameras)}
+                  />
+                  <span className="slider"></span>
+                </label>
+                <span className="ms-2 text-white d-none d-sm-inline" style={{ fontSize: '0.9rem' }}>
+                  {showCameras ? "Câmeras" : "Câmeras"}
+                </span>
+              </div>
+
+              {/* Badge removed */}
               {lastUpdate && <span className="text-light me-2 d-none d-sm-inline">Última Atualização: {lastUpdate}</span>}
               <Button variant="outline-light" onClick={handleShowAboutModal} className="me-2" size="sm">Sobre</Button>
             </div>
@@ -838,86 +971,112 @@ const Viewer = () => {
               >
                 ×
               </Button>
-              <Card className="mt-3">
-                <Card.Header className={location && isAtHome(location) ? "bg-success text-white" : ""}>
-                  <strong>
-                    {location && isAtHome(location) ? "🏠 Heric está em casa!" : "Heric está aqui!"}
-                  </strong>
-                </Card.Header>
-                <Card.Body>
-                  {location ? (
-                    <div className="location-info-grid">
-                      {/* Latitude - sempre visível */}
-                      <div className="location-info-item">
-                        <span className="info-label">Latitude:</span>
-                        <span className="info-value">{typeof location.lat === 'number' ? location.lat.toFixed(6) : location.lat || 'N/A'}</span>
-                      </div>
-                      {/* Longitude - sempre visível */}
-                      <div className="location-info-item">
-                        <span className="info-label">Longitude:</span>
-                        <span className="info-value">{typeof location.lng === 'number' ? location.lng.toFixed(6) : location.lng || 'N/A'}</span>
-                      </div>
-                      {/* Precisão - sempre visível (como no transmissor) */}
-                      <div className="location-info-item">
-                        <span className="info-label">Precisão:</span>
-                        <span className="info-value">
-                          {location.accuracy && typeof location.accuracy === 'number'
-                            ? `${location.accuracy.toFixed(2)}m`
-                            : 'N/A'}
-                        </span>
-                      </div>
-                      {/* Velocidade - sempre visível (como no transmissor) */}
-                      <div className="location-info-item">
-                        <span className="info-label">Velocidade:</span>
-                        <span className="info-value speed-value">
-                          {location.speed !== null && location.speed !== undefined && typeof location.speed === 'number'
-                            ? `${(location.speed * 3.6).toFixed(1)} km/h`
-                            : '0.0 km/h'}
-                        </span>
-                      </div>
-                      {/* Direção - opcional */}
-                      {location.heading !== null && location.heading !== undefined && typeof location.heading === 'number' && (
-                        <div className="location-info-item">
-                          <span className="info-label">Direção:</span>
-                          <span className="info-value">{location.heading.toFixed(0)}°</span>
-                        </div>
-                      )}
-
-                      {/* Altitude - opcional */}
-                      {location.altitude !== null && location.altitude !== undefined && typeof location.altitude === 'number' && (
-                        <div className="location-info-item">
-                          <span className="info-label">Altitude:</span>
-                          <span className="info-value">
-                            {location.altitude.toFixed(1)}m
-                            {location.altitude_accuracy ? ` (±${location.altitude_accuracy.toFixed(1)}m)` : ''}
-                          </span>
-                        </div>
-                      )}
-
-                      {/* Track info */}
-                      {isRecording && (
-                        <div className="location-info-item">
-                          <span className="info-label">Pontos na trilha:</span>
-                          <span className="info-value">{trackCoordinates.length}</span>
-                        </div>
-                      )}
-
-                      {/* Última atualização */}
-                      {lastUpdate && (
-                        <div className="location-info-item">
-                          <span className="info-label">Última Atualização:</span>
-                          <span className="info-value">{lastUpdate}</span>
-                        </div>
-                      )}
+              {/* Loop through users to display cards */}
+              {Object.entries(users).map(([userId, userLoc]) => (
+                <Card className="mt-3" key={userId}>
+                  <Card.Header className={userLoc && isAtHome(userLoc) ? "bg-success text-white" : ""}>
+                    <div className="d-flex align-items-center">
+                      <img
+                        src={userId === 'heric' ? 'https://hericmr.github.io/me/imagens/heric.png' : process.env.PUBLIC_URL + '/bruno.png'}
+                        alt={userId}
+                        style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px', objectFit: 'cover' }}
+                      />
+                      <strong>
+                        {userId === 'heric' ? "Heric" : "Bruno"}
+                        {userLoc && isAtHome(userLoc) ? " está em casa!" : " está aqui!"}
+                      </strong>
                     </div>
-                  ) : (
+                  </Card.Header>
+                  <Card.Body>
+                    {userLoc ? (
+                      userLoc.isProbable ? (
+                        <div className="waiting-message">
+                          <p><strong>O Bruno ainda não entrou no aplicativo.</strong></p>
+                          <p>Portanto ele deve estar na casa dele.</p>
+                        </div>
+                      ) : (
+                        <div className="location-info-grid">
+                          {/* Latitude */}
+                          <div className="location-info-item">
+                            <span className="info-label">Latitude:</span>
+                            <span className="info-value">{typeof userLoc.lat === 'number' ? userLoc.lat.toFixed(6) : userLoc.lat || 'N/A'}</span>
+                          </div>
+                          {/* Longitude */}
+                          <div className="location-info-item">
+                            <span className="info-label">Longitude:</span>
+                            <span className="info-value">{typeof userLoc.lng === 'number' ? userLoc.lng.toFixed(6) : userLoc.lng || 'N/A'}</span>
+                          </div>
+                          {/* Precisão */}
+                          <div className="location-info-item">
+                            <span className="info-label">Precisão:</span>
+                            <span className="info-value">
+                              {userLoc.accuracy && typeof userLoc.accuracy === 'number'
+                                ? `${userLoc.accuracy.toFixed(2)}m`
+                                : 'N/A'}
+                            </span>
+                          </div>
+                          {/* Velocidade */}
+                          <div className="location-info-item">
+                            <span className="info-label">Velocidade:</span>
+                            <span className="info-value speed-value">
+                              {userLoc.speed !== null && userLoc.speed !== undefined && typeof userLoc.speed === 'number'
+                                ? `${(userLoc.speed * 3.6).toFixed(1)} km/h`
+                                : '0.0 km/h'}
+                            </span>
+                          </div>
+
+                          {/* Direção - opcional */}
+                          {userLoc.heading !== null && userLoc.heading !== undefined && typeof userLoc.heading === 'number' && (
+                            <div className="location-info-item">
+                              <span className="info-label">Direção:</span>
+                              <span className="info-value">{userLoc.heading.toFixed(0)}°</span>
+                            </div>
+                          )}
+
+                          {/* Altitude - opcional */}
+                          {userLoc.altitude !== null && userLoc.altitude !== undefined && typeof userLoc.altitude === 'number' && (
+                            <div className="location-info-item">
+                              <span className="info-label">Altitude:</span>
+                              <span className="info-value">
+                                {userLoc.altitude.toFixed(1)}m
+                                {userLoc.altitude_accuracy ? ` (±${userLoc.altitude_accuracy.toFixed(1)}m)` : ''}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Track info (only relevant if recording, maybe general or per user?) */}
+                          {isRecording && userId === 'heric' && (
+                            <div className="location-info-item">
+                              <span className="info-label">Pontos na trilha:</span>
+                              <span className="info-value">{trackCoordinates.length}</span>
+                            </div>
+                          )}
+
+                          {/* Última atualização */}
+                          <div className="location-info-item">
+                            <span className="info-label">Última Atualização:</span>
+                            <span className="info-value">
+                              {new Date(userLoc.created_at).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      )
+                    ) : (
+                      <div className="waiting-message">Aguardando dados...</div>
+                    )}
+                  </Card.Body>
+                </Card>
+              ))}
+
+              {Object.keys(users).length === 0 && (
+                <Card className="mt-3">
+                  <Card.Body>
                     <div className="waiting-message">
                       <p>📍 Aguardando dados de localização...</p>
-                      <p className="text-muted small">Certifique-se de que o transmissor está ativo e enviando dados.</p>
                     </div>
-                  )}
-                </Card.Body>
-              </Card>
+                  </Card.Body>
+                </Card>
+              )}
             </Col>
           )}
         </Row>

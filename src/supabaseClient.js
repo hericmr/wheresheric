@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Configuração do Supabase - funciona localmente e no GitHub Pages
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://kbekziboncpvjqffmhlx.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtiZWt6aWJvbmNwdmpxZmZtaGx4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyNjc2OTYsImV4cCI6MjA1Njg0MzY5Nn0.FTtiCL3VKLdrcR9aKs3tF6AwgdoyKo604rMBdpWRLko';
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || 'https://reqksafbotcxjbuuwzkx.supabase.co';
+const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJlcWtzYWZib3RjeGpidXV3emt4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM0ODc1NjcsImV4cCI6MjA3OTA2MzU2N30.0ZKO-JWRcG4ExCtOiSWxmqgb9H6w9M0u766ObVC_NNo';
 
 console.log('Supabase Config:', {
   url: supabaseUrl,
