@@ -18,6 +18,7 @@ import { Container, Row, Col, Card, Button, Modal, Navbar, Form, InputGroup, But
 import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
 import TrackLayer from '../TrackLayer';
+import BusLayer from '../BusLayer';
 import './styles.css';
 
 
@@ -40,6 +41,8 @@ const Viewer = () => {
   const [users, setUsers] = useState({}); // Stores data for { heric: ..., bruno: ... }
   const [location, setLocation] = useState(null); // Deprecated, keeping for temporary compat if needed, but we will transition to 'users'
   const [showCameras, setShowCameras] = useState(false); // Toggle visibility of cameras - Default: HIDDEN
+  const [showBuses, setShowBuses] = useState(false);
+  const [activeBuses, setActiveBuses] = useState([]);
   // const [connectionStatus, setConnectionStatus] = useState('Conectando...'); // Unused
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -857,6 +860,21 @@ const Viewer = () => {
                 </Button>
               </ButtonGroup>
 
+              {/* iOS-style Switch for Buses */}
+              <div className="d-flex align-items-center me-3">
+                <label className="camera-switch" title={showBuses ? "Ocultar Ônibus" : "Mostrar Ônibus"}>
+                  <input
+                    type="checkbox"
+                    checked={showBuses}
+                    onChange={() => setShowBuses(!showBuses)}
+                  />
+                  <span className="slider"></span>
+                </label>
+                <span className="ms-2 text-white d-none d-sm-inline" style={{ fontSize: '0.9rem' }}>
+                  Ônibus
+                </span>
+              </div>
+
               {/* iOS-style Switch for Cameras */}
               <div className="d-flex align-items-center me-3">
                 <style>
@@ -957,6 +975,12 @@ const Viewer = () => {
                   color="rgba(255, 140, 0, 0.7)"
                   width={3}
                   lineDash={[10, 10]}
+                />
+                <BusLayer
+                  map={mapObject.current}
+                  linhaId={402}
+                  visible={showBuses}
+                  onBusesUpdate={setActiveBuses}
                 />
                 {showCameras && (
                   <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />
@@ -1080,6 +1104,27 @@ const Viewer = () => {
                   <div className="waiting-message">
                     <p>📍 Aguardando dados de localização...</p>
                   </div>
+                </Card.Body>
+              </Card>
+            )}
+
+            {showBuses && (
+              <Card className="mt-3">
+                <Card.Header>
+                  <strong>Ônibus — CIRCULAR 042</strong>
+                </Card.Header>
+                <Card.Body>
+                  {activeBuses.length === 0 ? (
+                    <div className="waiting-message">Aguardando posições...</div>
+                  ) : (
+                    activeBuses.map(bus => (
+                      <div key={bus.prefixo} className="mb-2" style={{ fontSize: '0.85rem' }}>
+                        <div><strong>Prefixo:</strong> {bus.prefixo}</div>
+                        <div><strong>Sentido:</strong> {bus.sentido === 1 ? 'Ida' : 'Volta'}</div>
+                        <div><strong>Pos:</strong> {Number(bus.lat).toFixed(5)}, {Number(bus.lng).toFixed(5)}</div>
+                      </div>
+                    ))
+                  )}
                 </Card.Body>
               </Card>
             )}
