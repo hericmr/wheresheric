@@ -43,6 +43,8 @@ const Viewer = () => {
   const [showCameras, setShowCameras] = useState(false); // Toggle visibility of cameras - Default: HIDDEN
   const [showBuses, setShowBuses] = useState(false);
   const [activeBuses, setActiveBuses] = useState([]);
+  const [linhas, setLinhas] = useState([]);
+  const [selectedLinha, setSelectedLinha] = useState(null);
   // const [connectionStatus, setConnectionStatus] = useState('Conectando...'); // Unused
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -805,6 +807,17 @@ const Viewer = () => {
     fetchCameras();
   }, []);
 
+  // Carrega lista de linhas de ônibus
+  useEffect(() => {
+    fetch(`${process.env.PUBLIC_URL}/todas_as_linhas.json`)
+      .then(r => r.json())
+      .then(data => {
+        setLinhas(data.linhas || []);
+        if (data.linhas?.length > 0) setSelectedLinha(data.linhas[0]);
+      })
+      .catch(err => console.error('[Linhas] Erro ao carregar:', err));
+  }, []);
+
   // Proximity logic - Abre automaticamente se target está a menos de 10m de uma câmera
   useEffect(() => {
     if (location && !autoOpenDisabled) { // Só abre automaticamente se não foi fechado manualmente
@@ -978,7 +991,7 @@ const Viewer = () => {
                 />
                 <BusLayer
                   map={mapObject.current}
-                  linhaId={402}
+                  linha={selectedLinha}
                   visible={showBuses}
                   onBusesUpdate={setActiveBuses}
                 />
@@ -1020,10 +1033,7 @@ const Viewer = () => {
                 <Card.Body>
                   {userLoc ? (
                     userLoc.isProbable ? (
-                      <div className="waiting-message">
-                        <p><strong>O Bruno ainda não entrou no aplicativo.</strong></p>
-                        <p>Portanto ele deve estar na casa dele.</p>
-                      </div>
+                      <div className="waiting-message">Aguardando dados...</div>
                     ) : (
                       <div className="location-info-grid">
                         {/* Latitude */}
@@ -1111,9 +1121,23 @@ const Viewer = () => {
             {showBuses && (
               <Card className="mt-3">
                 <Card.Header>
-                  <strong>Ônibus — CIRCULAR 042</strong>
+                  <strong>Ônibus</strong>
                 </Card.Header>
                 <Card.Body>
+                  <Form.Select
+                    size="sm"
+                    className="mb-3"
+                    value={selectedLinha?.linha_id || ''}
+                    onChange={e => {
+                      const linha = linhas.find(l => l.linha_id === Number(e.target.value));
+                      setSelectedLinha(linha || null);
+                      setActiveBuses([]);
+                    }}
+                  >
+                    {linhas.map(l => (
+                      <option key={l.linha_id} value={l.linha_id}>{l.nome}</option>
+                    ))}
+                  </Form.Select>
                   {activeBuses.length === 0 ? (
                     <div className="waiting-message">Aguardando posições...</div>
                   ) : (
@@ -1121,7 +1145,6 @@ const Viewer = () => {
                       <div key={bus.prefixo} className="mb-2" style={{ fontSize: '0.85rem' }}>
                         <div><strong>Prefixo:</strong> {bus.prefixo}</div>
                         <div><strong>Sentido:</strong> {bus.sentido === 1 ? 'Ida' : 'Volta'}</div>
-                        <div><strong>Pos:</strong> {Number(bus.lat).toFixed(5)}, {Number(bus.lng).toFixed(5)}</div>
                       </div>
                     ))
                   )}

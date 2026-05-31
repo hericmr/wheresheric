@@ -1,0 +1,248 @@
+[
+  {
+    "nome": "CIRCULAR 004",
+    "linha_id": 395,
+    "hash": "22eb3dbff337859ff18c14111add45faab5efcfc",
+    "descricao": "Ferry Boat / Praias / Conselheiro Nébias / Praça Mauá / Terminal Valongo / Conselheiro Nébias / Epitácio Pessoa"
+  },
+  {
+    "nome": "CIRCULAR 005",
+    "linha_id": 364,
+    "hash": "0d6cde359b7d6427ade5c2224930bd46ea3d024e",
+    "descricao": "BNH / Praias / Praça Independência / Canal 3 / Praça da República"
+  },
+  {
+    "nome": "CIRCULAR 007",
+    "linha_id": 365,
+    "hash": "7285a2b6eb571462ede02699b10d76595d89a5b0",
+    "descricao": "Praça Barão do Rio Branco / Canal 1 / Marapé / José Menino / Praias / Conselheiro Nébias"
+  },
+  {
+    "nome": "CIRCULAR 008",
+    "linha_id": 366,
+    "hash": "b9a885b54000a9caf407e4a347935117cfc0c185",
+    "descricao": "Ferry Boat / Shopping Praiamar / Oswaldo Cochrane / Cons. Rodrigues Alves / Praça da República"
+  },
+  {
+    "nome": "CIRCULAR 010",
+    "linha_id": 396,
+    "hash": "98ab7258b01139bf1fc0cbafef780212a2de231d",
+    "descricao": "Praça República / Conselheiro Nébias / A. Pena / Canal 4 / Praias / Canal 2 / Centro"
+  },
+  {
+    "nome": "CIRCULAR 013",
+    "linha_id": 367,
+    "hash": "f62eb9e136c34d478359bb70468353191cb63d79",
+    "descricao": "Rádio Clube / Nova Cintra / Carvalho de Mendonça / Cons. Nébias / Praias / Canal 2 / Marapé"
+  },
+  {
+    "nome": "CIRCULAR 017",
+    "linha_id": 397,
+    "hash": "03250d77c258b0c8c621da389c670af77f04de88",
+    "descricao": "Praça República / Santa Casa / Canal 2 / Praias / Canal 4 / Conselheiro Nébias / Centro"
+  },
+  {
+    "nome": "CIRCULAR 019",
+    "linha_id": 398,
+    "hash": "905f23385302327953838025bedc3a2c83b1b621",
+    "descricao": "Praça República / Conselheiro Nébias / A. Pena / Rebouças / Ferry Boat / Praias / Canal 1 / Centro"
+  },
+  {
+    "nome": "CIRCULAR 020",
+    "linha_id": 399,
+    "hash": "69f31d6fe60f976849c41f08b435b0e9fc4733b9",
+    "descricao": "Praça Mauá / Ana Costa / Praça Independência"
+  },
+  {
+    "nome": "CIRCULAR 023",
+    "linha_id": 400,
+    "hash": "58c5ba42543d9e206d9804fa09a72c0e7a127e5e",
+    "descricao": "Praça República / Canal 1 / Praias / Ferry Boat / Praça Rebouças / Conselheiro Nébias / centro"
+  },
+  {
+    "nome": "CIRCULAR 025",
+    "linha_id": 368,
+    "hash": "e22789f8de994aed3cc014461bc350ab71576b3d",
+    "descricao": "José Menino / Canal 1 /  Centro / Pedro Lessa / Ferry Boat / Praias"
+  },
+  {
+    "nome": "CIRCULAR 029",
+    "linha_id": 401,
+    "hash": "6e8f509579e5d004cdd6c4313220684986655fcc",
+    "descricao": "Terminal Valongo / Afonso Pena / Rebouças / Ferry Boat / Praias / Ana Costa / Centro"
+  },
+  {
+    "nome": "CIRCULAR 030",
+    "linha_id": 369,
+    "hash": "82f535b7e5cf3f81806815ce7ae47606b87ee1eb",
+    "descricao": "Ferry Boat / Afonso Pena / Orquidário / José Menino"
+  },
+  {
+    "nome": "CIRCULAR 037",
+    "linha_id": 370,
+    "hash": "189929f9efae1c45e0d91baa1b029efeec89bfbe",
+    "descricao": "Praça Barão / Canal 1 / José Menino / Praias / Ana Costa"
+  },
+  {
+    "nome": "CIRCULAR 040",
+    "linha_id": 371,
+    "hash": "c9b851918b82075cb2ef143487cf4fe3b142c5b7",
+    "descricao": "Praça Barão / Conselheiro Nébias / Gonzaga / Pompeia / Orquidário / José Menino"
+  },
+  {
+    "nome": "CIRCULAR 042",
+    "linha_id": 402,
+    "hash": "213554937c50ad7b9d52c4b652be9a85f61f50f1",
+    "descricao": "Terminal Valongo / Ana Costa / Praias / Ferry Boat / Afonso Pena / Av. Cidade de Santos / Centro"
+  },
+  {
+    "nome": "CIRCULAR 052",
+    "linha_id": 372,
+    "hash": "a1b92dfcc3d5c619688300da781aacb2ace85bf9",
+    "descricao": "José Menino / Praias / Ferry Boat / Pedro Lessa / Senador Dantas / Av. Perimetral / Centro / Santa Casa / Canal 1"
+  },
+  {
+    "nome": "CIRCULAR 053",
+    "linha_id": 373,
+    "hash": "b8178bc650d27e82394a18f74abf37813987880b",
+    "descricao": "Praça Barão / Canal 3 / Gonzaga / Pompeia / Orquidário / José Menino"
+  },
+  {
+    "nome": "CIRCULAR 054",
+    "linha_id": 374,
+    "hash": "860195e94328477d3452e4358e3b4f8999c8e5fb",
+    "descricao": "BNH / Shopping Praiamar / Praias / Canal 2 / Praça da República"
+  },
+  {
+    "nome": "CIRCULAR 061",
+    "linha_id": 375,
+    "hash": "82dce1cc1fe930d35d3c6cb2742c658f8fc2487e",
+    "descricao": "BNH / Macuco / Av. Cidade de Santos / Praça República / Nova Cintra / Caneleira / Nossa Senhora de Fátima"
+  },
+  {
+    "nome": "CIRCULAR 073",
+    "linha_id": 376,
+    "hash": "b7d797e4f9e449d32104a0ba5d46a794d8dc56ef",
+    "descricao": "Praça Barão / Ana Costa / Praias / José Menino / Canal 1"
+  },
+  {
+    "nome": "CIRCULAR 077",
+    "linha_id": 377,
+    "hash": "d62e2ceb32cc1b6e948d5f497e5bfa641c877dba",
+    "descricao": "Praça Barão / Conselheiro Nébias / Praias / Orquidário / Marapé / Canal 1"
+  },
+  {
+    "nome": "CIRCULAR 080",
+    "linha_id": 378,
+    "hash": "f597f8bf2e69e5712dd0d1e8cc73f8a618828b22",
+    "descricao": "Ferry Boat / Praça Rebouças / Pedro Lessa / Rodrigues Alves / Conselheiro Nébias / Terminal Valongo"
+  },
+  {
+    "nome": "CIRCULAR 100",
+    "linha_id": 379,
+    "hash": "b9fad84687a5b40f91b8ea464e8495caa9ca2262",
+    "descricao": "Ferry Boat / Praiamar / Canal 4 / Cons Nébias / Pça República / Morros / Term Valongo / Av. Portuária"
+  },
+  {
+    "nome": "CIRCULAR 101",
+    "linha_id": 380,
+    "hash": "525f1c63169cae44805c4d16f3668d5a4ef1746a",
+    "descricao": "Terminal Valongo  / Anchieta / São Manoel"
+  },
+  {
+    "nome": "CIRCULAR 102",
+    "linha_id": 381,
+    "hash": "6b3da67366aaaf1d8d2a068d42d135e6e61e341c",
+    "descricao": "Ilhéu Alto / Rádio Clube / Saboó / Terminal Valongo"
+  },
+  {
+    "nome": "CIRCULAR 108",
+    "linha_id": 382,
+    "hash": "fe1b90e2ef6797a66725fcff51eb740cfa56f3a3",
+    "descricao": "Terminal Valongo / Anchieta / Piratininga"
+  },
+  {
+    "nome": "CIRCULAR 118",
+    "linha_id": 383,
+    "hash": "8ebecb6b8aa253242506c585e4aeeea1f39766c6",
+    "descricao": "Term. Valongo / Rangel Pestana / São Bento / Nova Cintra / Canal 2 / Brás Cubas"
+  },
+  {
+    "nome": "CIRCULAR 139",
+    "linha_id": 384,
+    "hash": "3868693518dc4ee1663053c38e7cdd809b2d33eb",
+    "descricao": "Dale Coutinho / Terminal Valongo / Ana Costa / Praias / BNH / Pedro Lessa"
+  },
+  {
+    "nome": "CIRCULAR 152",
+    "linha_id": 385,
+    "hash": "5cd9e424f3891ff1832d6455a492b000a4ab0e9a",
+    "descricao": "Rádio Clube / Terminal Valongo / Canal 1 / José Menino / Praias / Ferry Boat / Afonso Pena / Canal 3"
+  },
+  {
+    "nome": "CIRCULAR 153",
+    "linha_id": 386,
+    "hash": "0b3094e4897ab4cbc1e7b30b3e4de9fa9e831410",
+    "descricao": "Rádio Clube / Terminal Valongo / Jabaquara / Canal 2 / José Menino"
+  },
+  {
+    "nome": "CIRCULAR 154",
+    "linha_id": 387,
+    "hash": "21d3dfdd7b5ac6e416a3e103754e4359d166ccd5",
+    "descricao": "Rádio Clube / Terminal Valongo / Ana Costa / Conselheiro Nébias"
+  },
+  {
+    "nome": "CIRCULAR 155",
+    "linha_id": 388,
+    "hash": "288d819bde755ccb27a51680f4cc58057f884639",
+    "descricao": "Rádio Clube / Terminal Valongo / Conselheiro Nébias / Ana Costa"
+  },
+  {
+    "nome": "CIRCULAR 156",
+    "linha_id": 389,
+    "hash": "26eb142f3a3cd37b5795f5f4a54ce36d5b1dd735",
+    "descricao": "Rádio Clube / Terminal Valongo / Canal 3 / Afonso Pena / Ferry Boat / Praias / Canal 1"
+  },
+  {
+    "nome": "CIRCULAR 158",
+    "linha_id": 390,
+    "hash": "8258caaf03158f6a534901aa7c30c7d621f54852",
+    "descricao": "Ferry Boat / Pedro Lessa / Av. Portuária / Terminal Valongo / Saboó"
+  },
+  {
+    "nome": "CIRCULAR 181",
+    "linha_id": 391,
+    "hash": "aa3817b797ff20c30ca3e1cfcb70e0a17eadd0d9",
+    "descricao": "Term. Valongo / Canal 2 / Campo Grande / Nova Cintra / São Bento / Brás Cubas"
+  },
+  {
+    "nome": "CIRCULAR 184",
+    "linha_id": 403,
+    "hash": "fd6597a8587e499233e783219a27fbc9275edafb",
+    "descricao": "BNH / Conselheiro Nébias / Terminal Valongo / Saboó / São Jorge / Saboó"
+  },
+  {
+    "nome": "CIRCULAR 191",
+    "linha_id": 392,
+    "hash": "8aaa4784e31369bd6d2a80bb6f2e4496c61405c6",
+    "descricao": "Rádio Clube / Terminal Valongo / Senador Dantas / Pedro Lessa / Ferry Boat / Praias / Canal 2 / Centro"
+  },
+  {
+    "nome": "CIRCULAR 193",
+    "linha_id": 393,
+    "hash": "a35083482e3ae6a63153df277862c8a0d899b23e",
+    "descricao": "Dale Coutinho / Terminal Valongo / Av. Cidade de Santos / BNH / Praiamar / Praias / Ana Costa"
+  },
+  {
+    "nome": "CIRCULAR 194",
+    "linha_id": 394,
+    "hash": "25a8de055ace1c73fe21ed020aba803c1ded379a",
+    "descricao": "Rádio Clube / Terminal Valongo / Canal 2 / Praias / Ferry Boat / Pedro Lessa / Centro"
+  },
+  {
+    "nome": "CIRCULAR 198",
+    "linha_id": 535,
+    "hash": "d3ad7f875b36afc93a9674a8b1419841bc337bef",
+    "descricao": "Rádio Clube > São Manoel"
+  }
+]
