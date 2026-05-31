@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useLayoutEffect, useMemo, useCallba
 import { debounce } from 'lodash';
 import { supabase } from '../../supabaseClient';
 import { transformCamerasFromJson } from '../../utils/cameraTransform';
+import { getCamerasAlongRoute, sortCamerasByBusProximity, distanceFromBus } from '../../utils/routeCameras';
 import 'ol/ol.css';
 import Map from 'ol/Map';
 import View from 'ol/View';
@@ -19,32 +20,22 @@ import CameraLayer from '../CameraLayer';
 import CameraGrid from '../CameraGrid';
 import TrackLayer from '../TrackLayer';
 import BusLayer from '../BusLayer';
+import StopsLayer from '../StopsLayer';
 import './styles.css';
 
 
-// ... inside component removed
-
-const BRUNO_HOME_LOCATION = {
-  lat: -23.967804,
-  lng: -46.342962,
-  accuracy: 50,
-  speed: 0,
-  heading: 0,
-  altitude: 0,
-  user_id: 'bruno',
-  created_at: new Date().toISOString(),
-  isProbable: true // Flag to indicate this is a fallback/probable location
-};
 
 const Viewer = () => {
   console.log('Viewer component rendering');
-  const [users, setUsers] = useState({}); // Stores data for { heric: ..., bruno: ... }
-  const [location, setLocation] = useState(null); // Deprecated, keeping for temporary compat if needed, but we will transition to 'users'
+  const [users, setUsers] = useState({});
+  const [location, setLocation] = useState(null);
   const [showCameras, setShowCameras] = useState(false); // Toggle visibility of cameras - Default: HIDDEN
-  const [showBuses, setShowBuses] = useState(false);
+  const [showBuses, setShowBuses] = useState(true);
   const [activeBuses, setActiveBuses] = useState([]);
   const [linhas, setLinhas] = useState([]);
   const [selectedLinha, setSelectedLinha] = useState(null);
+  const [followMode, setFollowMode] = useState(false);
+  const [routeCameras, setRouteCameras] = useState([]);
   // const [connectionStatus, setConnectionStatus] = useState('Conectando...'); // Unused
   const [lastUpdate, setLastUpdate] = useState(null);
   const [showAboutModal, setShowAboutModal] = useState(false);
@@ -66,8 +57,6 @@ const Viewer = () => {
   const [historyHours, setHistoryHours] = useState('24');
   const [historyCoordinates, setHistoryCoordinates] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-
-  // BRUNO_HOME_LOCATION moved outside component
 
   const mapRef = useRef();
   const mapObject = useRef(null);
@@ -96,7 +85,6 @@ const Viewer = () => {
 
 
   // History function
-  const handleShowHistoryModal = () => setShowHistoryModal(true);
   const handleCloseHistoryModal = () => setShowHistoryModal(false);
 
   const fetchHistory = useCallback(async () => {
@@ -258,46 +246,9 @@ const Viewer = () => {
     }),
   }), []);
 
-  // State to hold the rounded Bruno style
-  const [brunoStyle, setBrunoStyle] = useState(null);
-
-  // Effect to generate circular icon for Bruno
-  useEffect(() => {
-    const img = new Image();
-    img.src = process.env.PUBLIC_URL + '/bruno.png';
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const size = Math.min(img.width, img.height);
-      canvas.width = size;
-      canvas.height = size;
-      const ctx = canvas.getContext('2d');
-
-      ctx.beginPath();
-      ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
-      ctx.closePath();
-      ctx.clip();
-
-      ctx.drawImage(img, 0, 0, size, size);
-
-      const roundedStyle = new Style({
-        image: new Icon({
-          // User said "equal to Heric". Heric is [0.5, 1]. I will stick to [0.5, 1] for position consistency.
-          anchor: [0.5, 1],
-          src: canvas.toDataURL(),
-          scale: 0.25, // Restored to 0.25 to visually match Heric's marker size
-        }),
-      });
-      setBrunoStyle(roundedStyle);
-    };
-  }, []);
-
-  const getIconForUser = useCallback((userId) => {
-    if (userId === 'bruno') {
-      return brunoStyle || hericIconStyle; // Fallback to Heric (or plain) while loading
-    }
+  const getIconForUser = useCallback(() => {
     return hericIconStyle;
-  }, [hericIconStyle, brunoStyle]);
+  }, [hericIconStyle]);
 
   // Inicializa o mapa apenas uma vez, quando o DOM está pronto
   useLayoutEffect(() => {
@@ -318,8 +269,8 @@ const Viewer = () => {
         }),
       ],
       view: new View({
-        center: fromLonLat([-43.2096, -22.9035]), // Centro padrão (Rio de Janeiro)
-        zoom: 15, // Reduced zoom to show wider area
+        center: fromLonLat([-46.3322, -23.9608]), // Santos/SP
+        zoom: 13,
       }),
     });
     // Força o updateSize após um pequeno delay para garantir renderização
@@ -392,16 +343,6 @@ const Viewer = () => {
 
         appendLocationToTrack(locationData);
         return locationData;
-      } else {
-        // Fallback for Bruno if no data (or invalid data) found
-        if (userId === 'bruno') {
-          console.log('[Location Update] No data for Bruno, using probable home location.');
-          setUsers(prev => ({
-            ...prev,
-            [userId]: BRUNO_HOME_LOCATION
-          }));
-          return BRUNO_HOME_LOCATION;
-        }
       }
 
       return null;
@@ -411,11 +352,8 @@ const Viewer = () => {
     }
   }, [isDemoMode, appendLocationToTrack]);
 
-  // Fetch all known users
   const fetchAllLocations = useCallback(async () => {
-    // Define users to track
-    const trackedUsers = ['heric', 'bruno'];
-    await Promise.all(trackedUsers.map(uid => fetchUserLocation(uid)));
+    await fetchUserLocation('heric');
   }, [fetchUserLocation]);
 
   // Simula movimento no modo demo
@@ -807,6 +745,13 @@ const Viewer = () => {
     fetchCameras();
   }, []);
 
+  // Recalcula câmeras ao longo da rota quando linha ou câmeras mudam
+  useEffect(() => {
+    if (!followMode || !selectedLinha) { setRouteCameras([]); return; }
+    const along = getCamerasAlongRoute(cameras, selectedLinha, 80);
+    setRouteCameras(along);
+  }, [followMode, selectedLinha, cameras]);
+
   // Carrega lista de linhas de ônibus
   useEffect(() => {
     fetch(`${process.env.PUBLIC_URL}/todas_as_linhas.json`)
@@ -846,13 +791,12 @@ const Viewer = () => {
       <Navbar bg="dark" variant="dark" expand="lg">
         <Container fluid>
           <Navbar.Brand href="#">
-            {users.bruno ? "Onde está o Heric e o Bruno?" : "Onde está o Heric?"}
+            Onde está o Heric?
           </Navbar.Brand>
           <Navbar.Toggle aria-controls="basic-navbar-nav" />
           <Navbar.Collapse id="basic-navbar-nav">
             <div className="ms-auto d-flex align-items-center">
               <ButtonGroup className="me-3">
-                {/* Button Removed as per request */}
                 {trackCoordinates.length > 0 && (
                   <Button
                     variant="outline-warning"
@@ -863,14 +807,6 @@ const Viewer = () => {
                     🗑
                   </Button>
                 )}
-                <Button
-                  variant="outline-info"
-                  onClick={handleShowHistoryModal}
-                  size="sm"
-                  title="Ver Histórico"
-                >
-                  Histórico
-                </Button>
               </ButtonGroup>
 
               {/* iOS-style Switch for Buses */}
@@ -995,8 +931,19 @@ const Viewer = () => {
                   visible={showBuses}
                   onBusesUpdate={setActiveBuses}
                 />
-                {showCameras && (
-                  <CameraLayer map={mapObject.current} cameras={cameras} onCameraClick={handleCameraClick} targetLocation={location} />
+                <StopsLayer
+                  map={mapObject.current}
+                  stops={selectedLinha?.paradas || []}
+                  buses={activeBuses}
+                  visible={showBuses}
+                />
+                {(showCameras || followMode) && (
+                  <CameraLayer
+                    map={mapObject.current}
+                    cameras={followMode ? routeCameras : cameras}
+                    onCameraClick={handleCameraClick}
+                    targetLocation={location}
+                  />
                 )}
               </>
             )}
@@ -1014,139 +961,151 @@ const Viewer = () => {
                 ×
               </Button>
             </div>
-            {/* Loop through users to display cards */}
-            {Object.entries(users).map(([userId, userLoc]) => (
-              <Card className="mt-3" key={userId}>
-                <Card.Header className={userLoc && isAtHome(userLoc) ? "bg-success text-white" : ""}>
+            {users.heric && (
+              <Card className="mt-3" key="heric">
+                <Card.Header className={isAtHome(users.heric) ? "bg-success text-white" : ""}>
                   <div className="d-flex align-items-center">
                     <img
-                      src={userId === 'heric' ? 'https://hericmr.github.io/me/imagens/heric.png' : process.env.PUBLIC_URL + '/bruno.png'}
-                      alt={userId}
+                      src="https://hericmr.github.io/me/imagens/heric.png"
+                      alt="heric"
                       style={{ width: '30px', height: '30px', borderRadius: '50%', marginRight: '10px', objectFit: 'cover' }}
                     />
                     <strong>
-                      {userId === 'heric' ? "Heric" : "Bruno"}
-                      {userLoc && isAtHome(userLoc) ? " está em casa!" : " está aqui!"}
+                      Heric{isAtHome(users.heric) ? " está em casa!" : " está aqui!"}
                     </strong>
                   </div>
                 </Card.Header>
                 <Card.Body>
-                  {userLoc ? (
-                    userLoc.isProbable ? (
-                      <div className="waiting-message">Aguardando dados...</div>
-                    ) : (
-                      <div className="location-info-grid">
-                        {/* Latitude */}
-                        <div className="location-info-item">
-                          <span className="info-label">Latitude:</span>
-                          <span className="info-value">{typeof userLoc.lat === 'number' ? userLoc.lat.toFixed(6) : userLoc.lat || 'N/A'}</span>
-                        </div>
-                        {/* Longitude */}
-                        <div className="location-info-item">
-                          <span className="info-label">Longitude:</span>
-                          <span className="info-value">{typeof userLoc.lng === 'number' ? userLoc.lng.toFixed(6) : userLoc.lng || 'N/A'}</span>
-                        </div>
-                        {/* Precisão */}
-                        <div className="location-info-item">
-                          <span className="info-label">Precisão:</span>
-                          <span className="info-value">
-                            {userLoc.accuracy && typeof userLoc.accuracy === 'number'
-                              ? `${userLoc.accuracy.toFixed(2)}m`
-                              : 'N/A'}
-                          </span>
-                        </div>
-                        {/* Velocidade */}
-                        <div className="location-info-item">
-                          <span className="info-label">Velocidade:</span>
-                          <span className="info-value speed-value">
-                            {userLoc.speed !== null && userLoc.speed !== undefined && typeof userLoc.speed === 'number'
-                              ? `${(userLoc.speed * 3.6).toFixed(1)} km/h`
-                              : '0.0 km/h'}
-                          </span>
-                        </div>
-
-                        {/* Direção - opcional */}
-                        {userLoc.heading !== null && userLoc.heading !== undefined && typeof userLoc.heading === 'number' && (
-                          <div className="location-info-item">
-                            <span className="info-label">Direção:</span>
-                            <span className="info-value">{userLoc.heading.toFixed(0)}°</span>
-                          </div>
-                        )}
-
-                        {/* Altitude - opcional */}
-                        {userLoc.altitude !== null && userLoc.altitude !== undefined && typeof userLoc.altitude === 'number' && (
-                          <div className="location-info-item">
-                            <span className="info-label">Altitude:</span>
-                            <span className="info-value">
-                              {userLoc.altitude.toFixed(1)}m
-                              {userLoc.altitude_accuracy ? ` (±${userLoc.altitude_accuracy.toFixed(1)}m)` : ''}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Track info (only relevant if recording, maybe general or per user?) */}
-                        {isRecording && userId === 'heric' && (
-                          <div className="location-info-item">
-                            <span className="info-label">Pontos na trilha:</span>
-                            <span className="info-value">{trackCoordinates.length}</span>
-                          </div>
-                        )}
-
-                        {/* Última atualização */}
-                        <div className="location-info-item">
-                          <span className="info-label">Última Atualização:</span>
-                          <span className="info-value">
-                            {new Date(userLoc.created_at).toLocaleString()}
-                          </span>
-                        </div>
+                  {users.heric ? (
+                    <div className="location-info-grid">
+                      <div className="location-info-item">
+                        <span className="info-label">Latitude:</span>
+                        <span className="info-value">{users.heric.lat?.toFixed(6) || 'N/A'}</span>
                       </div>
-                    )
+                      <div className="location-info-item">
+                        <span className="info-label">Longitude:</span>
+                        <span className="info-value">{users.heric.lng?.toFixed(6) || 'N/A'}</span>
+                      </div>
+                      <div className="location-info-item">
+                        <span className="info-label">Velocidade:</span>
+                        <span className="info-value">
+                          {typeof users.heric.speed === 'number' ? `${(users.heric.speed * 3.6).toFixed(1)} km/h` : '0.0 km/h'}
+                        </span>
+                      </div>
+                      <div className="location-info-item">
+                        <span className="info-label">Última Atualização:</span>
+                        <span className="info-value">{new Date(users.heric.created_at).toLocaleString()}</span>
+                      </div>
+                    </div>
                   ) : (
                     <div className="waiting-message">Aguardando dados...</div>
                   )}
-                </Card.Body>
-              </Card>
-            ))}
-
-            {Object.keys(users).length === 0 && (
-              <Card className="mt-3">
-                <Card.Body>
-                  <div className="waiting-message">
-                    <p>📍 Aguardando dados de localização...</p>
-                  </div>
                 </Card.Body>
               </Card>
             )}
 
             {showBuses && (
               <Card className="mt-3">
-                <Card.Header>
-                  <strong>Ônibus</strong>
+                <Card.Header className="d-flex justify-content-between align-items-center">
+                  <strong>Linhas de Ônibus</strong>
+                  {selectedLinha && activeBuses.length > 0 && (
+                    <div className="d-flex align-items-center">
+                      <label className="camera-switch" title={followMode ? 'Parar de seguir' : 'Seguir ônibus'}>
+                        <input
+                          type="checkbox"
+                          checked={followMode}
+                          onChange={() => setFollowMode(f => !f)}
+                        />
+                        <span className="slider"></span>
+                      </label>
+                      <span className="ms-2" style={{ fontSize: '0.85rem' }}>Seguir</span>
+                    </div>
+                  )}
                 </Card.Header>
-                <Card.Body>
-                  <Form.Select
-                    size="sm"
-                    className="mb-3"
-                    value={selectedLinha?.linha_id || ''}
-                    onChange={e => {
-                      const linha = linhas.find(l => l.linha_id === Number(e.target.value));
-                      setSelectedLinha(linha || null);
-                      setActiveBuses([]);
-                    }}
-                  >
-                    {linhas.map(l => (
-                      <option key={l.linha_id} value={l.linha_id}>{l.nome}</option>
-                    ))}
-                  </Form.Select>
-                  {activeBuses.length === 0 ? (
-                    <div className="waiting-message">Aguardando posições...</div>
-                  ) : (
-                    activeBuses.map(bus => (
-                      <div key={bus.prefixo} className="mb-2" style={{ fontSize: '0.85rem' }}>
-                        <div><strong>Prefixo:</strong> {bus.prefixo}</div>
-                        <div><strong>Sentido:</strong> {bus.sentido === 1 ? 'Ida' : 'Volta'}</div>
+                <Card.Body style={{ padding: '8px' }}>
+                  {!followMode ? (
+                    <>
+                      <div style={{ maxHeight: '260px', overflowY: 'auto' }}>
+                        {linhas.map(l => (
+                          <div
+                            key={l.linha_id}
+                            onClick={() => { setSelectedLinha(l); setActiveBuses([]); setFollowMode(false); }}
+                            style={{
+                              padding: '8px 10px',
+                              marginBottom: '4px',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '0.85rem',
+                              fontWeight: selectedLinha?.linha_id === l.linha_id ? 'bold' : 'normal',
+                              background: selectedLinha?.linha_id === l.linha_id ? '#1a73e8' : 'transparent',
+                              color: selectedLinha?.linha_id === l.linha_id ? 'white' : 'inherit',
+                              transition: 'background 0.15s',
+                            }}
+                          >
+                            {l.nome}
+                          </div>
+                        ))}
                       </div>
-                    ))
+                      {selectedLinha && (
+                        <div className="mt-2" style={{ borderTop: '1px solid #eee', paddingTop: '8px', fontSize: '0.82rem' }}>
+                          {activeBuses.length === 0 ? (
+                            <div className="waiting-message">Aguardando posições...</div>
+                          ) : (
+                            activeBuses.map(bus => (
+                              <div key={bus.prefixo} className="mb-1">
+                                <strong>Prefixo {bus.prefixo}</strong> — {bus.sentido === 1 ? 'Ida' : 'Volta'}
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div className="mb-2" style={{ fontSize: '0.82rem', color: '#555' }}>
+                        <strong>{selectedLinha?.nome}</strong> — câmeras ao longo da rota ordenadas por proximidade ao ônibus
+                      </div>
+                      {routeCameras.length === 0 ? (
+                        <div className="waiting-message">Nenhuma câmera encontrada ao longo desta rota.</div>
+                      ) : (
+                        <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                          {sortCamerasByBusProximity(routeCameras, activeBuses).map(camera => {
+                            const dist = distanceFromBus(camera, activeBuses);
+                            return (
+                              <div
+                                key={camera.id}
+                                onClick={() => {
+                                  setActiveCameras([camera]);
+                                  setCameraGridVisible(true);
+                                  setCameraGridPosition('fullscreen');
+                                }}
+                                style={{
+                                  padding: '8px 10px',
+                                  marginBottom: '4px',
+                                  borderRadius: '6px',
+                                  cursor: 'pointer',
+                                  fontSize: '0.82rem',
+                                  background: '#f8f9fa',
+                                  border: '1px solid #e0e0e0',
+                                  transition: 'background 0.15s',
+                                }}
+                                onMouseEnter={e => e.currentTarget.style.background = '#e8f0fe'}
+                                onMouseLeave={e => e.currentTarget.style.background = '#f8f9fa'}
+                              >
+                                <div style={{ fontWeight: 'bold' }}>{camera.name}</div>
+                                {dist != null && (
+                                  <div style={{ color: '#1a73e8', fontSize: '0.75rem' }}>
+                                    {dist < 1000
+                                      ? `${Math.round(dist)}m do ônibus`
+                                      : `${(dist / 1000).toFixed(1)}km do ônibus`}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </Card.Body>
               </Card>
