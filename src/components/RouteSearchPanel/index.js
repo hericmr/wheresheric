@@ -1,44 +1,66 @@
 import React, { useState } from 'react';
 import { geocodeAddress } from '../../utils/geocoder';
-import { findBestRoutes } from '../../utils/routeFinder';
+import { findCandidates, rankWithBuses } from '../../utils/routeFinder';
 import './styles.css';
 
-const RouteSearchPanel = ({ linhas = [], onSelectRoute }) => {
-  const [origin, setOrigin] = useState('');
-  const [destination, setDestination] = useState('');
+function BusChip({ distMeters }) {
+  if (distMeters === null) return <span className="rsp-bus rsp-bus-none">sem ônibus</span>;
+  if (distMeters < 300) return <span className="rsp-bus rsp-bus-close">ônibus a {distMeters}m</span>;
+  if (distMeters < 1000) return <span className="rsp-bus rsp-bus-mid">ônibus a {distMeters}m</span>;
+  return <span className="rsp-bus rsp-bus-far">ônibus a {(distMeters / 1000).toFixed(1)}km</span>;
+}
+
+// origin / destination: { text: string, coords: {lat,lng} | null }
+const RouteSearchPanel = ({
+  linhas = [],
+  origin,
+  destination,
+  onOriginChange,
+  onDestChange,
+  onRequestMapPick,
+  fetchBusesForLinha,
+  onSelectRoute,
+}) => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
 
+  const hasInput = origin.text || destination.text;
+
   const handleSearch = async () => {
-    const o = origin.trim();
-    const d = destination.trim();
-    if (!o || !d) return;
+    const originText = origin.text.trim();
+    const destText = destination.text.trim();
+    if (!originText || !destText) return;
 
     setLoading(true);
     setError(null);
     setResults(null);
 
     try {
-      const [originCoords, destCoords] = await Promise.all([
-        geocodeAddress(o),
-        geocodeAddress(d),
-      ]);
+      // Resolve coords — reuse if already set from map pick
+      let originCoords = origin.coords;
+      let destCoords = destination.coords;
 
-      if (!originCoords) { setError('Origem não encontrada. Tente um endereço mais completo.'); return; }
-      if (!destCoords) { setError('Destino não encontrado. Tente um endereço mais completo.'); return; }
-
-      const found = findBestRoutes(
-        originCoords.lat, originCoords.lng,
-        destCoords.lat, destCoords.lng,
-        linhas
-      );
-
-      if (!found.length) {
-        setError('Nenhuma linha faz esse trajeto sem baldeação. Verifique se os endereços estão em Santos.');
-      } else {
-        setResults(found);
+      if (!originCoords) {
+        originCoords = await geocodeAddress(originText);
+        if (!originCoords) { setError('Origem não encontrada. Tente um endereço mais completo.'); return; }
       }
+      if (!destCoords) {
+        destCoords = await geocodeAddress(destText);
+        if (!destCoords) { setError('Destino não encontrado. Tente um endereço mais completo.'); return; }
+      }
+
+      const candidates = findCandidates(originCoords.lat, originCoords.lng, destCoords.lat, destCoords.lng, linhas);
+      if (!candidates.length) {
+        setError('Nenhuma linha faz esse trajeto sem baldeação. Verifique se os endereços estão em Santos.');
+        return;
+      }
+
+      // Fetch live bus positions for all candidates in parallel
+      const busResults = await Promise.all(candidates.map(c => fetchBusesForLinha(c.linhaFull.linha_id)));
+      const busesPerLinha = Object.fromEntries(candidates.map((c, i) => [c.linhaFull.linha_id, busResults[i]]));
+
+      setResults(rankWithBuses(candidates, busesPerLinha));
     } catch {
       setError('Serviço de busca indisponível. Tente novamente.');
     } finally {
@@ -47,8 +69,8 @@ const RouteSearchPanel = ({ linhas = [], onSelectRoute }) => {
   };
 
   const handleClear = () => {
-    setOrigin('');
-    setDestination('');
+    onOriginChange({ text: '', coords: null });
+    onDestChange({ text: '', coords: null });
     setResults(null);
     setError(null);
   };
@@ -60,25 +82,40 @@ const RouteSearchPanel = ({ linhas = [], onSelectRoute }) => {
         <input
           className="rsp-input"
           placeholder="De: ex. Rua XV de Novembro"
-          value={origin}
-          onChange={e => setOrigin(e.target.value)}
+          value={origin.text}
+          onChange={e => onOriginChange({ text: e.target.value, coords: null })}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
         />
+        <button
+          className={`rsp-pick-btn${origin.coords ? ' rsp-pick-active' : ''}`}
+          title="Clicar no mapa"
+          onClick={() => onRequestMapPick('origin')}
+        >📍</button>
+
         <div className="rsp-dest-dot" />
         <input
           className="rsp-input"
           placeholder="Para: ex. Av. Ana Costa"
-          value={destination}
-          onChange={e => setDestination(e.target.value)}
+          value={destination.text}
+          onChange={e => onDestChange({ text: e.target.value, coords: null })}
           onKeyDown={e => e.key === 'Enter' && handleSearch()}
         />
+        <button
+          className={`rsp-pick-btn${destination.coords ? ' rsp-pick-active' : ''}`}
+          title="Clicar no mapa"
+          onClick={() => onRequestMapPick('destination')}
+        >📍</button>
       </div>
 
       <div className="rsp-actions">
-        <button className="rsp-btn-search" onClick={handleSearch} disabled={loading || !origin.trim() || !destination.trim()}>
+        <button
+          className="rsp-btn-search"
+          onClick={handleSearch}
+          disabled={loading || !origin.text.trim() || !destination.text.trim()}
+        >
           {loading ? 'Buscando...' : 'Buscar rota'}
         </button>
-        {(results || error || origin || destination) && (
+        {(results || error || hasInput) && (
           <button className="rsp-btn-clear" onClick={handleClear}>Limpar</button>
         )}
       </div>
@@ -94,6 +131,8 @@ const RouteSearchPanel = ({ linhas = [], onSelectRoute }) => {
                 <span className="rsp-line-name">{r.linhaFull.nome}</span>
                 <span className="rsp-stops-badge">{r.stopsCount} paradas</span>
               </div>
+
+              <BusChip distMeters={r.minBusDist} />
 
               <div className="rsp-stop-row">
                 <span className="rsp-dot rsp-dot-boarding" />

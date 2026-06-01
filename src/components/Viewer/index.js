@@ -9,7 +9,7 @@ import TileLayer from 'ol/layer/Tile';
 import XYZ from 'ol/source/XYZ';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
-import { fromLonLat } from 'ol/proj';
+import { fromLonLat, toLonLat } from 'ol/proj';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Style from 'ol/style/Style';
@@ -23,9 +23,13 @@ import StopsLayer from '../StopsLayer';
 import AlarmLayer from '../AlarmLayer';
 import AlarmPanel from '../AlarmPanel';
 import RouteSearchPanel from '../RouteSearchPanel';
+import { reverseGeocode } from '../../utils/geocoder';
 import { useAlarm } from '../../hooks/useAlarm';
 import { Bell } from 'lucide-react';
 import './styles.css';
+
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 const HOME_COORDS = { lat: -23.984520, lng: -46.307976, alt: 5.9 };
 const HOME_COORD_TOLERANCE = 0.0005; // ~50 metros
@@ -56,6 +60,9 @@ const Viewer = () => {
   const [pendingRadius, setPendingRadius] = useState(500);
   const [routeBoardingStop, setRouteBoardingStop] = useState(null);
   const [routeAlightingStop, setRouteAlightingStop] = useState(null);
+  const [routeOrigin, setRouteOrigin] = useState({ text: '', coords: null });
+  const [routeDest, setRouteDest] = useState({ text: '', coords: null });
+  const [mapPickMode, setMapPickMode] = useState(null); // 'origin' | 'destination'
   const alarm = useAlarm();
 
   // Histórico de rastreamento
@@ -175,6 +182,19 @@ const Viewer = () => {
       ]);
       mapObject.current.getView().animate({ center, zoom: 14, duration: 800 });
     }
+  }, []);
+
+  const fetchBusesForLinha = useCallback(async (linha_id) => {
+    try {
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/bus-proxy`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` },
+        body: JSON.stringify({ linha_id }),
+      });
+      if (!resp.ok) return [];
+      const buses = await resp.json();
+      return Array.isArray(buses) ? buses : [];
+    } catch { return []; }
   }, []);
 
   const hericIconStyle = useMemo(() => new Style({
@@ -428,6 +448,23 @@ const Viewer = () => {
   }, [activeBuses, alarm]);
 
   useEffect(() => {
+    if (!mapPickMode || !mapObject.current) return;
+    const handler = async (e) => {
+      const [lng, lat] = toLonLat(e.coordinate);
+      const geo = await reverseGeocode(lat, lng).catch(() => null);
+      const text = geo?.displayName || `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      if (mapPickMode === 'origin') {
+        setRouteOrigin({ text, coords: { lat, lng } });
+      } else {
+        setRouteDest({ text, coords: { lat, lng } });
+      }
+      setMapPickMode(null);
+    };
+    mapObject.current.on('click', handler);
+    return () => mapObject.current?.un('click', handler);
+  }, [mapPickMode]);
+
+  useEffect(() => {
     if (!location || autoOpenDisabled) return;
     const relevantCameras = detectRelevantCameras(location, cameras);
     if (relevantCameras.length > 0) {
@@ -509,6 +546,14 @@ const Viewer = () => {
                 ℹ️
               </Button>
             )}
+            {/* Banner: map pick mode for route search */}
+            {mapPickMode && (
+              <div className="alarm-selection-banner">
+                <span>Clique no mapa para definir {mapPickMode === 'origin' ? 'a origem' : 'o destino'}</span>
+                <button className="alarm-banner-close" onClick={() => setMapPickMode(null)}>✕</button>
+              </div>
+            )}
+
             {/* Banner: map selection mode */}
             {alarmMode && alarm.status === 'idle' && !pendingAlarmStop && (
               <div className="alarm-selection-banner">
@@ -646,7 +691,16 @@ const Viewer = () => {
             <Card className="mt-3">
               <Card.Header><strong>Buscar Rota</strong></Card.Header>
               <Card.Body style={{ padding: '10px' }}>
-                <RouteSearchPanel linhas={linhas} onSelectRoute={handleSelectRoute} />
+                <RouteSearchPanel
+                  linhas={linhas}
+                  origin={routeOrigin}
+                  destination={routeDest}
+                  onOriginChange={setRouteOrigin}
+                  onDestChange={setRouteDest}
+                  onRequestMapPick={setMapPickMode}
+                  fetchBusesForLinha={fetchBusesForLinha}
+                  onSelectRoute={handleSelectRoute}
+                />
               </Card.Body>
             </Card>
 
