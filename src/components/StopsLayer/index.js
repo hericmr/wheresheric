@@ -50,7 +50,37 @@ function destinationStyle() {
         <path d="M12 19h8v1.5H12zm4-9a5 5 0 0 0-5 5v3h10v-3a5 5 0 0 0-5-5z" fill="#1a73e8"/>
         <circle cx="16" cy="21.5" r="1.2" fill="#1a73e8"/>
       </svg>`),
-      anchor: [0.5, 1], // pin points to the coordinate
+      anchor: [0.5, 1],
+      scale: 1,
+    }),
+  });
+}
+
+function boardingStyle() {
+  return new Style({
+    image: new Icon({
+      src: makeSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">
+        <filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".35"/></filter>
+        <path filter="url(#s)" d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28S32 27 32 16C32 7.163 24.837 0 16 0z" fill="#34a853"/>
+        <circle cx="16" cy="16" r="9" fill="white"/>
+        <path d="M16 10l-5 6h3v5h4v-5h3z" fill="#34a853"/>
+      </svg>`),
+      anchor: [0.5, 1],
+      scale: 1,
+    }),
+  });
+}
+
+function alightingStyle() {
+  return new Style({
+    image: new Icon({
+      src: makeSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="32" height="44" viewBox="0 0 32 44">
+        <filter id="s"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".35"/></filter>
+        <path filter="url(#s)" d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28S32 27 32 16C32 7.163 24.837 0 16 0z" fill="#ea4335"/>
+        <circle cx="16" cy="16" r="9" fill="white"/>
+        <path d="M16 22l5-6h-3v-5h-4v5h-3z" fill="#ea4335"/>
+      </svg>`),
+      anchor: [0.5, 1],
       scale: 1,
     }),
   });
@@ -87,9 +117,11 @@ const StopsLayer = ({
   stops = [],
   buses = [],
   visible = true,
-  alarmMode = false,      // true → selection mode (amber dots, click = onStopSelect)
-  destinationStop = null, // armed destination → pin + pulse
-  onStopSelect = null,    // (stop) => void, called in alarmMode
+  alarmMode = false,
+  destinationStop = null,
+  onStopSelect = null,
+  boardingStop = null,
+  alightingStop = null,
 }) => {
   const sourceRef     = useRef(new VectorSource());
   const layerRef      = useRef(null);
@@ -206,17 +238,25 @@ const StopsLayer = ({
       const isDestination = destinationStop
         && stop.lat === destinationStop.lat
         && stop.lng === destinationStop.lng;
+      const isBoarding = boardingStop
+        && stop.lat === boardingStop.lat
+        && stop.lng === boardingStop.lng;
+      const isAlighting = alightingStop
+        && stop.lat === alightingStop.lat
+        && stop.lng === alightingStop.lng;
 
       const feature = new Feature({ geometry: new Point(fromLonLat([stop.lng, stop.lat])) });
       feature.setStyle(
         isDestination ? destinationStyle()
+          : isBoarding ? boardingStyle()
+          : isAlighting ? alightingStyle()
           : alarmMode ? alarmStopStyle()
           : stopStyle()
       );
       feature.set('stopData', stop);
       sourceRef.current.addFeature(feature);
     });
-  }, [stops, visible, alarmMode, destinationStop]);
+  }, [stops, visible, alarmMode, destinationStop, boardingStop, alightingStop]);
 
 
   useEffect(() => {

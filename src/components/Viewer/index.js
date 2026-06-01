@@ -22,6 +22,7 @@ import BusLayer from '../BusLayer';
 import StopsLayer from '../StopsLayer';
 import AlarmLayer from '../AlarmLayer';
 import AlarmPanel from '../AlarmPanel';
+import RouteSearchPanel from '../RouteSearchPanel';
 import { useAlarm } from '../../hooks/useAlarm';
 import { Bell } from 'lucide-react';
 import './styles.css';
@@ -53,6 +54,8 @@ const Viewer = () => {
   const [alarmMode, setAlarmMode] = useState(false);         // map selection mode
   const [pendingAlarmStop, setPendingAlarmStop] = useState(null);
   const [pendingRadius, setPendingRadius] = useState(500);
+  const [routeBoardingStop, setRouteBoardingStop] = useState(null);
+  const [routeAlightingStop, setRouteAlightingStop] = useState(null);
   const alarm = useAlarm();
 
   // Histórico de rastreamento
@@ -157,6 +160,21 @@ const Viewer = () => {
 
   const handleGridPositionChange = useCallback((newPosition) => {
     setCameraGridPosition(newPosition);
+  }, []);
+
+  const handleSelectRoute = useCallback((linha, boarding, alighting) => {
+    setSelectedLinha(linha);
+    setActiveBuses([]);
+    setFollowMode(false);
+    setRouteBoardingStop(boarding);
+    setRouteAlightingStop(alighting);
+    if (mapObject.current) {
+      const center = fromLonLat([
+        (boarding.lng + alighting.lng) / 2,
+        (boarding.lat + alighting.lat) / 2,
+      ]);
+      mapObject.current.getView().animate({ center, zoom: 14, duration: 800 });
+    }
   }, []);
 
   const hericIconStyle = useMemo(() => new Style({
@@ -590,6 +608,8 @@ const Viewer = () => {
                   alarmMode={alarmMode && alarm.status === 'idle'}
                   destinationStop={alarm.destinationStop}
                   onStopSelect={(stop) => setPendingAlarmStop(stop)}
+                  boardingStop={routeBoardingStop}
+                  alightingStop={routeAlightingStop}
                 />
                 <AlarmLayer
                   map={mapObject.current}
@@ -622,6 +642,13 @@ const Viewer = () => {
                 ×
               </Button>
             </div>
+
+            <Card className="mt-3">
+              <Card.Header><strong>Buscar Rota</strong></Card.Header>
+              <Card.Body style={{ padding: '10px' }}>
+                <RouteSearchPanel linhas={linhas} onSelectRoute={handleSelectRoute} />
+              </Card.Body>
+            </Card>
 
             {users.heric && (
               <Card className="mt-3">
