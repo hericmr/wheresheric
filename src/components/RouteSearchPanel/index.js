@@ -3,11 +3,24 @@ import { geocodeAddress } from '../../utils/geocoder';
 import { findCandidates, rankWithBuses } from '../../utils/routeFinder';
 import './styles.css';
 
-function BusChip({ distMeters }) {
+function BusChip({ distMeters, stopsUntilBoarding }) {
   if (distMeters === null) return <span className="rsp-bus rsp-bus-none">sem ônibus</span>;
-  if (distMeters < 300) return <span className="rsp-bus rsp-bus-close">ônibus a {distMeters}m</span>;
-  if (distMeters < 1000) return <span className="rsp-bus rsp-bus-mid">ônibus a {distMeters}m</span>;
-  return <span className="rsp-bus rsp-bus-far">ônibus a {(distMeters / 1000).toFixed(1)}km</span>;
+
+  const stopsLabel = stopsUntilBoarding === 0
+    ? 'chegando!'
+    : stopsUntilBoarding > 0
+    ? `${stopsUntilBoarding} parada${stopsUntilBoarding > 1 ? 's' : ''}`
+    : null;
+
+  const distLabel = distMeters < 1000 ? `${distMeters}m` : `${(distMeters / 1000).toFixed(1)}km`;
+  const label = stopsLabel ? `ônibus a ${stopsLabel}` : `ônibus a ${distLabel}`;
+
+  if (stopsUntilBoarding === 0) return <span className="rsp-bus rsp-bus-close">{label}</span>;
+  if (distMeters < 300 || (stopsUntilBoarding != null && stopsUntilBoarding <= 2))
+    return <span className="rsp-bus rsp-bus-close">{label}</span>;
+  if (distMeters < 1000 || (stopsUntilBoarding != null && stopsUntilBoarding <= 5))
+    return <span className="rsp-bus rsp-bus-mid">{label}</span>;
+  return <span className="rsp-bus rsp-bus-far">{label}</span>;
 }
 
 function PinIcon() {
@@ -146,7 +159,7 @@ const RouteSearchPanel = ({
                 <span className="rsp-stops-badge">{r.stopsCount} paradas</span>
               </div>
 
-              <BusChip distMeters={r.minBusDist} />
+              <BusChip distMeters={r.minBusDist} stopsUntilBoarding={r.stopsUntilBoarding} />
 
               <div className="rsp-stop-row">
                 <span className="rsp-dot rsp-dot-boarding" />

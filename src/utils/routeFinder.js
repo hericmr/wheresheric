@@ -51,13 +51,31 @@ export function rankWithBuses(candidates, busesPerLinha) {
   return candidates
     .map(c => {
       const buses = busesPerLinha[c.linhaFull.linha_id] || [];
-      const minBusDist = buses.length
-        ? Math.min(...buses.map(b => haversineMeters(b.lat, b.lng, c.boardingStop.lat, c.boardingStop.lng)))
-        : null;
-      // Lines with a nearby bus rank before lines with better walking but no bus.
-      // Penalty of 3000m for missing bus data keeps walk-only lines at the bottom.
+      const stops = c.linhaFull.paradas;
+
+      // Find bus closest to boarding stop and how many stops away it is
+      let minBusDist = null;
+      let stopsUntilBoarding = null;
+      buses.forEach(bus => {
+        const dist = haversineMeters(bus.lat, bus.lng, c.boardingStop.lat, c.boardingStop.lng);
+        if (minBusDist === null || dist < minBusDist) {
+          minBusDist = dist;
+          // Closest stop on the route to this bus
+          const { stop: busStop } = closestStop(stops, bus.lat, bus.lng);
+          if (busStop) {
+            const diff = c.boardingStop.ordem - busStop.ordem;
+            stopsUntilBoarding = diff > 0 ? diff : null; // null if bus already passed
+          }
+        }
+      });
+
       const busPenalty = minBusDist != null ? minBusDist * 0.4 : 3000;
-      return { ...c, minBusDist: minBusDist != null ? Math.round(minBusDist) : null, score: c.walkScore + busPenalty };
+      return {
+        ...c,
+        minBusDist: minBusDist != null ? Math.round(minBusDist) : null,
+        stopsUntilBoarding,
+        score: c.walkScore + busPenalty,
+      };
     })
     .sort((a, b) => a.score - b.score)
     .slice(0, 3);
