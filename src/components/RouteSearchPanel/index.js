@@ -10,6 +10,14 @@ function BusChip({ distMeters }) {
   return <span className="rsp-bus rsp-bus-far">ônibus a {(distMeters / 1000).toFixed(1)}km</span>;
 }
 
+function PinIcon() {
+  return (
+    <svg width="12" height="16" viewBox="0 0 12 16" fill="currentColor" aria-hidden="true">
+      <path d="M6 0C2.686 0 0 2.686 0 6c0 4.5 6 10 6 10S12 10.5 12 6C12 2.686 9.314 0 6 0zm0 8.5A2.5 2.5 0 1 1 6 3.5a2.5 2.5 0 0 1 0 5z"/>
+    </svg>
+  );
+}
+
 // origin / destination: { text: string, coords: {lat,lng} | null }
 const RouteSearchPanel = ({
   linhas = [],
@@ -20,6 +28,7 @@ const RouteSearchPanel = ({
   onRequestMapPick,
   fetchBusesForLinha,
   onSelectRoute,
+  onResultsChange,
 }) => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState(null);
@@ -60,7 +69,9 @@ const RouteSearchPanel = ({
       const busResults = await Promise.all(candidates.map(c => fetchBusesForLinha(c.linhaFull.linha_id)));
       const busesPerLinha = Object.fromEntries(candidates.map((c, i) => [c.linhaFull.linha_id, busResults[i]]));
 
-      setResults(rankWithBuses(candidates, busesPerLinha));
+      const ranked = rankWithBuses(candidates, busesPerLinha);
+      setResults(ranked);
+      onResultsChange?.(ranked);
     } catch {
       setError('Serviço de busca indisponível. Tente novamente.');
     } finally {
@@ -73,6 +84,7 @@ const RouteSearchPanel = ({
     onDestChange({ text: '', coords: null });
     setResults(null);
     setError(null);
+    onResultsChange?.([]);
   };
 
   return (
@@ -90,7 +102,7 @@ const RouteSearchPanel = ({
           className={`rsp-pick-btn${origin.coords ? ' rsp-pick-active' : ''}`}
           title="Clicar no mapa"
           onClick={() => onRequestMapPick('origin')}
-        >📍</button>
+        ><PinIcon /></button>
 
         <div className="rsp-dest-dot" />
         <input
@@ -104,7 +116,7 @@ const RouteSearchPanel = ({
           className={`rsp-pick-btn${destination.coords ? ' rsp-pick-active' : ''}`}
           title="Clicar no mapa"
           onClick={() => onRequestMapPick('destination')}
-        >📍</button>
+        ><PinIcon /></button>
       </div>
 
       <div className="rsp-actions">

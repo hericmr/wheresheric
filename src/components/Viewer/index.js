@@ -23,6 +23,7 @@ import StopsLayer from '../StopsLayer';
 import AlarmLayer from '../AlarmLayer';
 import AlarmPanel from '../AlarmPanel';
 import RouteSearchPanel from '../RouteSearchPanel';
+import RouteMarkersLayer from '../RouteMarkersLayer';
 import { reverseGeocode } from '../../utils/geocoder';
 import { useAlarm } from '../../hooks/useAlarm';
 import { Bell } from 'lucide-react';
@@ -62,6 +63,7 @@ const Viewer = () => {
   const [routeAlightingStop, setRouteAlightingStop] = useState(null);
   const [routeOrigin, setRouteOrigin] = useState({ text: '', coords: null });
   const [routeDest, setRouteDest] = useState({ text: '', coords: null });
+  const [routeResults, setRouteResults] = useState([]);
   const [mapPickMode, setMapPickMode] = useState(null); // 'origin' | 'destination'
   const alarm = useAlarm();
 
@@ -662,6 +664,12 @@ const Viewer = () => {
                   radiusMeters={alarm.radiusMeters}
                   status={alarm.status}
                 />
+                <RouteMarkersLayer
+                  map={mapObject.current}
+                  origin={routeOrigin.coords}
+                  destination={routeDest.coords}
+                  results={routeResults}
+                />
                 {(showCameras || followMode) && (
                   <CameraLayer
                     map={mapObject.current}
@@ -700,6 +708,7 @@ const Viewer = () => {
                   onRequestMapPick={setMapPickMode}
                   fetchBusesForLinha={fetchBusesForLinha}
                   onSelectRoute={handleSelectRoute}
+                  onResultsChange={setRouteResults}
                 />
               </Card.Body>
             </Card>
