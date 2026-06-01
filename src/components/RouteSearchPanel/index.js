@@ -53,10 +53,12 @@ const RouteSearchPanel = ({
       if (!originCoords) {
         originCoords = await geocodeAddress(originText);
         if (!originCoords) { setError('Origem não encontrada. Tente um endereço mais completo.'); return; }
+        onOriginChange({ text: originText, coords: originCoords });
       }
       if (!destCoords) {
         destCoords = await geocodeAddress(destText);
         if (!destCoords) { setError('Destino não encontrado. Tente um endereço mais completo.'); return; }
+        onDestChange({ text: destText, coords: destCoords });
       }
 
       const candidates = findCandidates(originCoords.lat, originCoords.lng, destCoords.lat, destCoords.lng, linhas);
