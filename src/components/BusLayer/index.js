@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { fromLonLat } from 'ol/proj';
+import { snapToPolyline } from '../../utils/routeCameras';
 import VectorLayer from 'ol/layer/Vector';
 import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
@@ -9,8 +10,8 @@ import Style from 'ol/style/Style';
 import Icon from 'ol/style/Icon';
 import Stroke from 'ol/style/Stroke';
 
-const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL || 'https://ypxauswxgbdegvkxgzmi.supabase.co';
-const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlweGF1c3d4Z2JkZWd2a3hnem1pIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTI3MDUzNTIsImV4cCI6MjA2ODI4MTM1Mn0._jYk-5djNOllJIGSwRD1lzXWSq5mcZrVijQMC3bTYYc';
+const SUPABASE_URL = process.env.REACT_APP_SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY;
 const POLL_INTERVAL = 15000;
 
 const MARKER_SRC = `${process.env.PUBLIC_URL}/marcador_ida.png`;
@@ -150,12 +151,18 @@ const BusLayer = ({ map, linha, visible = true, onBusesUpdate }) => {
 
         const activePrefixos = new Set();
 
+        const routePoints = [
+          ...(linha.percurso_ida || []),
+          ...(linha.percurso_volta || []),
+        ];
+
         buses.forEach(bus => {
           const { prefixo, lat, lng, sentido } = bus;
           if (!prefixo || lat == null || lng == null) return;
 
           activePrefixos.add(prefixo);
-          const targetCoords = fromLonLat([lng, lat]);
+          const [snappedLng, snappedLat] = snapToPolyline(lat, lng, routePoints);
+          const targetCoords = fromLonLat([snappedLng, snappedLat]);
 
           if (!featuresRef.current[prefixo]) {
             const feature = new Feature({ geometry: new Point(targetCoords) });
@@ -181,7 +188,6 @@ const BusLayer = ({ map, linha, visible = true, onBusesUpdate }) => {
         });
 
         if (onBusesUpdate) onBusesUpdate(buses);
-        console.log(`[BusLayer] ${buses.length} ônibus ativo(s) — ${linha.nome}`);
       } catch (err) {
         console.error('[BusLayer] Erro:', err);
       }

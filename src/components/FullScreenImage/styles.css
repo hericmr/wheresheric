@@ -363,10 +363,6 @@
     pointer-events: none;
 }
 
-.md\:hidden {
-    display: none;
-}
-
 .bg-black\/50 {
     background-color: rgba(0, 0, 0, 0.5);
 }
@@ -489,5 +485,68 @@
     .md\:text-xl {
         font-size: 1.25rem;
         line-height: 1.75rem;
+    }
+}
+
+/* Barra de navegação entre câmeras — mobile */
+.mobile-camera-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: absolute;
+    bottom: calc(4rem + env(safe-area-inset-bottom, 0px));
+    left: 0;
+    right: 0;
+    padding: 0 12px;
+    z-index: 10000;
+    pointer-events: none;
+}
+
+.mobile-camera-nav button {
+    pointer-events: all;
+    min-width: 56px;
+    min-height: 56px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.85);
+    border: 1px solid rgba(255,255,255,0.15);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 0.65rem;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-camera-nav button:active {
+    background: rgba(50, 50, 50, 0.95);
+}
+
+.mobile-camera-nav .nav-counter {
+    color: rgba(255,255,255,0.7);
+    font-size: 0.8rem;
+    background: rgba(0,0,0,0.6);
+    padding: 4px 12px;
+    border-radius: 99px;
+    pointer-events: none;
+}
+
+/* Bottom bar com safe area para iOS home bar */
+.bottom-bar-safe {
+    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+}
+
+/* Botões laterais de nav com touch target adequado */
+.side-nav-btn {
+    min-width: 48px;
+    min-height: 48px;
+    -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 768px) {
+    .mobile-camera-nav {
+        display: none;
     }
 }

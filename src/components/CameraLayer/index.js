@@ -1,5 +1,6 @@
 import { useEffect, useRef, useMemo, useCallback } from 'react';
 import { fromLonLat } from 'ol/proj';
+import { haversineMeters } from '../../utils/routeCameras';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import VectorLayer from 'ol/layer/Vector';
@@ -47,19 +48,6 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     return dataUrl;
   }, []);
 
-  // Calculate distance between two lat/lng points in meters (Haversine formula)
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371000; // Earth's radius in meters
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c; // Distance in meters
-  };
-
   // Dynamic Style Function
   const styleFunction = useCallback((feature) => {
     const camera = feature.get('camera');
@@ -69,12 +57,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     let isCloseToTarget = false;
 
     if (currentTarget && camera.lat && camera.lng) {
-      const distance = calculateDistance(
-        currentTarget.lat,
-        currentTarget.lng,
-        camera.lat,
-        camera.lng
-      );
+      const distance = haversineMeters(currentTarget.lat, currentTarget.lng, camera.lat, camera.lng);
       isCloseToTarget = distance <= 100; // Within 100 meters
     }
 
@@ -126,7 +109,7 @@ const CameraLayer = ({ map, cameras, onCameraClick, targetLocation }) => {
     }
 
     return styles;
-  }, [cameraIconStyle, exclamationIconStyle]); // calculateDistance is defined outside or can be moved inside if stable. It is defined outside component now no, it is inside but not memoized. Let's rely on the function definition inside component.
+  }, [cameraIconStyle, exclamationIconStyle]);
 
   // Atualiza features das câmeras (apenas quando a lista de câmeras muda)
   useEffect(() => {

@@ -28,6 +28,7 @@
     "@testing-library/user-event": "^13.5.0",
     "bootstrap": "^5.3.7",
     "lodash": "^4.17.21",
+    "lucide-react": "^1.17.0",
     "ol": "^10.6.1",
     "react": "^19.1.0",
     "react-bootstrap": "^2.10.10",

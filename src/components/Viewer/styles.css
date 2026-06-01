@@ -1,15 +1,18 @@
+@import '../AlarmPanel/styles.css';
+
 .viewer-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
   height: 100vh;
+  height: 100dvh; /* mobile: desconta a barra do browser */
+  overflow: hidden;
 }
 
 .main-content {
-  flex-grow: 1;
+  flex: 1 1 0;
   padding: 0;
-  height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .map-col {
@@ -56,9 +59,7 @@
 
 @media (max-width: 991.98px) {
   .main-content {
-    height: 100%;
     position: relative;
-    overflow: hidden;
   }
 
   .map-container {
@@ -111,6 +112,56 @@
   .card.mt-3 {
     margin-top: 10px !important;
   }
+}
+
+/* Toggle switch estilo iOS */
+.camera-switch {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 28px;
+}
+
+.camera-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #2196F3;
+}
+
+input:focus + .slider {
+  box-shadow: 0 0 1px #2196F3;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
 }
 
 /* Location Info Grid Styles */

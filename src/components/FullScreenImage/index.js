@@ -186,7 +186,7 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             {previous && (
                 <button
                     onClick={previous}
-                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-6 rounded-full bg-black/90 hover:bg-gray-900 transition-colors duration-200 flex flex-col items-center gap-1 md:gap-2 group z-[10000]"
+                    className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 p-2 md:p-6 rounded-full bg-black/90 hover:bg-gray-900 transition-colors duration-200 flex flex-col items-center gap-1 md:gap-2 group z-[10000] side-nav-btn"
                     title="Câmera anterior"
                 >
                     <FaChevronLeft className="text-white text-xl md:text-3xl group-hover:text-gray-300" />
@@ -197,18 +197,35 @@ function FullScreenImage({ imageUrl, close, title, next, previous, onCloseSpecif
             {next && (
                 <button
                     onClick={next}
-                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-6 rounded-full bg-black/90 hover:bg-gray-900 transition-colors duration-200 flex flex-col items-center gap-1 md:gap-2 group z-[10000]"
+                    className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 p-2 md:p-6 rounded-full bg-black/90 hover:bg-gray-900 transition-colors duration-200 flex flex-col items-center gap-1 md:gap-2 group z-[10000] side-nav-btn"
                     title="Próxima câmera"
                 >
                     <FaChevronRight className="text-white text-xl md:text-3xl group-hover:text-gray-300" />
                     <span className="text-xs md:text-sm text-gray-500 group-hover:text-gray-400 hidden md:block">Próxima</span>
                 </button>
             )}
+
+            {/* Barra de navegação mobile — só aparece quando há múltiplas câmeras */}
+            {(previous || next) && activeCameras && activeCameras.length > 1 && (
+                <div className="mobile-camera-nav">
+                    <button onClick={previous || (() => {})} title="Anterior" disabled={!previous}>
+                        <FaChevronLeft size={20} />
+                        <span>Anterior</span>
+                    </button>
+                    <span className="nav-counter">
+                        {(activeCameras.findIndex(c => c.id === currentCameraId) + 1)} / {activeCameras.length}
+                    </span>
+                    <button onClick={next || (() => {})} title="Próxima" disabled={!next}>
+                        <FaChevronRight size={20} />
+                        <span>Próxima</span>
+                    </button>
+                </div>
+            )}
         </>
     );
     
     const renderBottomMenu = () => (
-        <div className="absolute bottom-0 left-0 right-0 flex justify-center p-1 md:p-2 z-[10000]">
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center p-1 md:p-2 z-[10000] bottom-bar-safe">
             <div className="bg-black/90 rounded-lg shadow-xl p-1 md:p-2 flex flex-row gap-1 overflow-x-auto max-w-full">
                 <ActionButton
                     onClick={handleRefresh}
