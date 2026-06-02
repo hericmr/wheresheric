@@ -40,6 +40,8 @@ jobs:
         run: npm run build
         env:
           PUBLIC_URL: https://hericmr.github.io/wheresheric
+          REACT_APP_SUPABASE_URL: ${{ secrets.REACT_APP_SUPABASE_URL }}
+          REACT_APP_SUPABASE_ANON_KEY: ${{ secrets.REACT_APP_SUPABASE_ANON_KEY }}
       
       - name: Clean reference directories from build output
         run: |
