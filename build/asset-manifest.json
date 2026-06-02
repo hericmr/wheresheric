@@ -1,0 +1,15 @@
+{
+  "files": {
+    "main.css": "https://hericmr.github.io/wheresheric/static/css/main.e2b67c5e.css",
+    "main.js": "https://hericmr.github.io/wheresheric/static/js/main.63ec26df.js",
+    "static/js/453.587a47e0.chunk.js": "https://hericmr.github.io/wheresheric/static/js/453.587a47e0.chunk.js",
+    "index.html": "https://hericmr.github.io/wheresheric/index.html",
+    "main.e2b67c5e.css.map": "https://hericmr.github.io/wheresheric/static/css/main.e2b67c5e.css.map",
+    "main.63ec26df.js.map": "https://hericmr.github.io/wheresheric/static/js/main.63ec26df.js.map",
+    "453.587a47e0.chunk.js.map": "https://hericmr.github.io/wheresheric/static/js/453.587a47e0.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e2b67c5e.css",
+    "static/js/main.63ec26df.js"
+  ]
+}
