@@ -18,16 +18,18 @@ CURRENT_BRANCH=$(git branch --show-current)
 git subtree push --prefix build origin gh-pages || {
     # If subtree push fails, create orphan branch
     echo "Creating fresh gh-pages branch..."
+    cp .env.local /tmp/.env.local.bak 2>/dev/null || true
     git checkout --orphan gh-pages-temp
     git rm -rf . 2>/dev/null || true
     cp -r build/* .
-    echo "/node_modules" > .gitignore
+    printf "/node_modules\n.env*\n" > .gitignore
     git add -A
     git commit -m "Deploy to GitHub Pages - $(date)"
     git branch -D gh-pages 2>/dev/null || true
     git branch -m gh-pages
     git push -f origin gh-pages
     git checkout "$CURRENT_BRANCH"
+    cp /tmp/.env.local.bak .env.local 2>/dev/null || true
 }
 
 echo "Deployment complete!"
